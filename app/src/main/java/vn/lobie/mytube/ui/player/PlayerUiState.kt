@@ -10,6 +10,8 @@ data class PlayerUiState(
     val currentPositionMs: Long = 0L,
     val durationMs: Long = 0L,
     val bufferedPositionMs: Long = 0L,
+    val isLiked: Boolean = false,
+    val isSubscribed: Boolean = false,
     val errorMessage: String? = null
 ) {
     val progress: Float

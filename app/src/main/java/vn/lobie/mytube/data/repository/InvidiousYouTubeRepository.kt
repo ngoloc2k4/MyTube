@@ -90,13 +90,32 @@ class InvidiousYouTubeRepository(
     }
 
     private fun InvidiousVideoDto.toDomainModel(): Video {
-        val thumb = videoThumbnails.maxByOrNull { it.width }?.url
-            ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
-        val fullThumbUrl = if (thumb.startsWith("http")) thumb else "https://i.ytimg.com$thumb"
+        // Direct YouTube CDN URL always bypasses Invidious captcha/proxy issues
+        val fullThumbUrl = if (videoId.isNotBlank()) {
+            "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+        } else {
+            val thumb = videoThumbnails.maxByOrNull { it.width }?.url.orEmpty()
+            if (thumb.contains("/vi/")) {
+                "https://i.ytimg.com/vi/" + thumb.substringAfter("/vi/")
+            } else if (thumb.startsWith("http")) {
+                thumb
+            } else {
+                "https://i.ytimg.com$thumb"
+            }
+        }
 
-        val avatar = authorThumbnails.maxByOrNull { it.width }?.url
-            ?: "https://picsum.photos/seed/$authorId/120/120"
-        val fullAvatarUrl = if (avatar.startsWith("http")) avatar else "https://picsum.photos/seed/$authorId/120/120"
+        val rawAvatar = authorThumbnails.maxByOrNull { it.width }?.url.orEmpty()
+        val fullAvatarUrl = when {
+            rawAvatar.contains("yt3.ggpht.com") || rawAvatar.contains("googleusercontent.com") -> {
+                if (rawAvatar.startsWith("http")) rawAvatar else "https:$rawAvatar"
+            }
+            rawAvatar.contains("/ggpht/") -> {
+                "https://yt3.ggpht.com/" + rawAvatar.substringAfter("/ggpht/")
+            }
+            rawAvatar.startsWith("http") && !rawAvatar.contains("invidious") -> rawAvatar
+            rawAvatar.isNotBlank() -> "https://yt3.ggpht.com$rawAvatar"
+            else -> "https://picsum.photos/seed/$authorId/120/120"
+        }
 
         return Video(
             id = videoId,

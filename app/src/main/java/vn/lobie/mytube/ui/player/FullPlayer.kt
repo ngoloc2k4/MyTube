@@ -47,12 +47,13 @@ fun FullPlayer(
     onTogglePlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekBy: (Long) -> Unit,
+    onToggleLike: () -> Unit = {},
+    onToggleSubscribe: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
     var controlsVisible by remember { mutableStateOf(true) }
     val context = LocalContext.current
-    var isLiked by remember(video.id) { mutableStateOf(false) }
     var isSaved by remember(video.id) { mutableStateOf(false) }
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
 
@@ -197,14 +198,17 @@ fun FullPlayer(
                     }
 
                     Button(
-                        onClick = { /* Future: Subscribe */ },
+                        onClick = onToggleSubscribe,
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onSurface,
-                            contentColor = MaterialTheme.colorScheme.surface
+                            containerColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            contentColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.surface
                         )
                     ) {
-                        Text(text = stringResource(R.string.subscribe_button), style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = stringResource(if (uiState.isSubscribed) R.string.subscribed_button else R.string.subscribe_button),
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
 
@@ -217,18 +221,22 @@ fun FullPlayer(
                 ) {
                     item {
                         FilledTonalButton(
-                            onClick = { isLiked = !isLiked },
+                            onClick = onToggleLike,
                             shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            )
                         ) {
                             Icon(
-                                imageVector = if (isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
-                                contentDescription = stringResource(if (isLiked) R.string.action_liked else R.string.action_like),
+                                imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
+                                text = if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }

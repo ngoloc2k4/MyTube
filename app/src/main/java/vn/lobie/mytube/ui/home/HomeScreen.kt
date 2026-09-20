@@ -70,7 +70,6 @@ fun HomeScreen(
                 value = currentQuery,
                 onValueChange = {
                     currentQuery = it
-                    viewModel.onSearchQueryChanged(it)
                     if (it.isBlank()) {
                         viewModel.clearSearch()
                     }
@@ -80,20 +79,53 @@ fun HomeScreen(
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = stringResource(R.string.search_action))
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = stringResource(R.string.search_action),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 trailingIcon = {
                     AnimatedVisibility(
-                        visible = currentQuery.isNotEmpty(),
+                        visible = currentQuery.isNotBlank(),
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
-                        IconButton(onClick = {
-                            currentQuery = ""
-                            viewModel.clearSearch()
-                            focusManager.clearFocus()
-                        }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.clear_action))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            IconButton(onClick = {
+                                currentQuery = ""
+                                viewModel.clearSearch()
+                                focusManager.clearFocus()
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.clear_action),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            FilledIconButton(
+                                onClick = {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    if (currentQuery.isNotBlank()) {
+                                        viewModel.performSearch(currentQuery)
+                                    }
+                                },
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.search_action),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 },

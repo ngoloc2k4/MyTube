@@ -23,6 +23,8 @@ import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 import vn.lobie.mytube.data.repository.CascadingYouTubeRepository
 import vn.lobie.mytube.ui.home.HomeScreen
 import vn.lobie.mytube.ui.home.HomeViewModel
+import vn.lobie.mytube.ui.library.LibraryScreen
+import vn.lobie.mytube.ui.library.LibraryViewModel
 import vn.lobie.mytube.ui.navigation.AppBottomBar
 import vn.lobie.mytube.ui.navigation.AppTab
 import vn.lobie.mytube.ui.navigation.PlaceholderTabScreen
@@ -50,6 +52,9 @@ class MainActivity : ComponentActivity() {
                     }
                     val playerViewModel: PlayerViewModel = viewModel {
                         PlayerViewModel(application, repository)
+                    }
+                    val libraryViewModel: LibraryViewModel = viewModel {
+                        LibraryViewModel(application)
                     }
 
                     val playerUiState by playerViewModel.uiState.collectAsState()
@@ -87,11 +92,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppTab.LIBRARY -> {
-                                PlaceholderTabScreen(
-                                    title = "Library",
-                                    icon = AppTab.LIBRARY.icon,
-                                    description = "Playlists, watch history, liked videos, and offline downloads",
-                                    bottomPadding = contentBottomPadding
+                                LibraryScreen(
+                                    viewModel = libraryViewModel,
+                                    bottomPadding = contentBottomPadding,
+                                    onVideoClick = { video ->
+                                        playerViewModel.playVideo(video)
+                                    }
                                 )
                             }
                             AppTab.SETTINGS -> {
@@ -139,7 +145,9 @@ class MainActivity : ComponentActivity() {
                                 onCollapse = { playerViewModel.collapse() },
                                 onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                 onSeek = { playerViewModel.seekTo(it) },
-                                onSeekBy = { playerViewModel.seekBy(it) }
+                                onSeekBy = { playerViewModel.seekBy(it) },
+                                onToggleLike = { playerViewModel.toggleLike() },
+                                onToggleSubscribe = { playerViewModel.toggleSubscribe() }
                             )
                         }
                     }

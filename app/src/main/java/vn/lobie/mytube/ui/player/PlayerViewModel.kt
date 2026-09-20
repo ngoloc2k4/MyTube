@@ -18,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import vn.lobie.mytube.data.local.db.MyTubeDatabase
+import vn.lobie.mytube.data.local.db.entity.LikedVideoEntity
+import vn.lobie.mytube.data.local.db.entity.SubscriptionEntity
+import vn.lobie.mytube.data.local.db.entity.WatchHistoryEntity
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 import vn.lobie.mytube.playback.PlaybackService
@@ -38,6 +43,10 @@ class PlayerViewModel(
     companion object {
         const val FALLBACK_SAMPLE_STREAM = "https://media.w3.org/2010/05/sintel/trailer.mp4"
     }
+
+    private val database = MyTubeDatabase.getInstance(application)
+    private var likeObservationJob: Job? = null
+    private var subObservationJob: Job? = null
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -170,6 +179,38 @@ class PlayerViewModel(
             )
         }
 
+        // Record watch history asynchronously
+        viewModelScope.launch(Dispatchers.IO) {
+            database.watchHistoryDao().insert(
+                WatchHistoryEntity(
+                    videoId = video.id,
+                    title = video.title,
+                    channelId = video.channel.id,
+                    channelName = video.channel.name,
+                    thumbnailUrl = video.thumbnailUrl,
+                    category = "",
+                    durationSeconds = video.durationSeconds,
+                    watchedDurationMs = 0L,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+
+        // Observe liked & subscribed status for current video
+        likeObservationJob?.cancel()
+        likeObservationJob = viewModelScope.launch {
+            database.likedVideoDao().isLiked(video.id).collect { liked ->
+                _uiState.update { it.copy(isLiked = liked) }
+            }
+        }
+
+        subObservationJob?.cancel()
+        subObservationJob = viewModelScope.launch {
+            database.subscriptionDao().isSubscribed(video.channel.id).collect { sub ->
+                _uiState.update { it.copy(isSubscribed = sub) }
+            }
+        }
+
         viewModelScope.launch {
             val streamResult = repository.getStreamInfo(video.id)
             val streamInfo = streamResult.getOrNull()
@@ -240,8 +281,51 @@ class PlayerViewModel(
         _uiState.update { it.copy(isExpanded = false) }
     }
 
+    fun toggleLike() {
+        val video = _uiState.value.currentVideo ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentlyLiked = _uiState.value.isLiked
+            if (currentlyLiked) {
+                database.likedVideoDao().delete(video.id)
+            } else {
+                database.likedVideoDao().insert(
+                    LikedVideoEntity(
+                        videoId = video.id,
+                        title = video.title,
+                        channelId = video.channel.id,
+                        channelName = video.channel.name,
+                        thumbnailUrl = video.thumbnailUrl,
+                        durationSeconds = video.durationSeconds,
+                        likedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+    }
+
+    fun toggleSubscribe() {
+        val video = _uiState.value.currentVideo ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentlySubbed = _uiState.value.isSubscribed
+            if (currentlySubbed) {
+                database.subscriptionDao().delete(video.channel.id)
+            } else {
+                database.subscriptionDao().insert(
+                    SubscriptionEntity(
+                        channelId = video.channel.id,
+                        channelName = video.channel.name,
+                        avatarUrl = video.channel.avatarUrl,
+                        subscribedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+    }
+
     fun close() {
         progressJob?.cancel()
+        likeObservationJob?.cancel()
+        subObservationJob?.cancel()
         pendingMediaItem = null
         player?.let { p ->
             p.stop()
