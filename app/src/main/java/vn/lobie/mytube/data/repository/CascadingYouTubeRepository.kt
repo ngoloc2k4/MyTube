@@ -6,70 +6,64 @@ import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 
 /**
- * Cascading multi-engine repository:
- * 1. Primary: Invidious API (fast, lightweight REST)
- * 2. Secondary: NewPipeExtractor (direct client extraction from YouTube)
- * 3. Fallback: Fake repository (deterministic local sample data & test stream)
+ * Cascading multi-engine repository pipeline:
+ * 1. Primary: Invidious API (fast, lightweight REST with multi-instance rotator)
+ * 2. Secondary: Native InnerTube Engine (direct YouTube v1 API without proxy)
+ * 3. Tertiary: NewPipeExtractor (direct client extraction from YouTube HTML/JS)
+ * 4. Fallback: Fake repository (deterministic local sample data & test stream)
  */
 class CascadingYouTubeRepository(
-    private val primaryRepository: YouTubeRepository = InvidiousYouTubeRepository(),
-    private val secondaryRepository: YouTubeRepository = NewPipeYouTubeRepository(),
+    private val invidiousRepository: YouTubeRepository = InvidiousYouTubeRepository(),
+    private val innerTubeRepository: YouTubeRepository = InnerTubeYouTubeRepository(),
+    private val newPipeRepository: YouTubeRepository = NewPipeYouTubeRepository(),
     private val fallbackRepository: YouTubeRepository = FakeYouTubeRepository()
 ) : YouTubeRepository {
 
+    private val pipeline: List<YouTubeRepository> = listOf(
+        invidiousRepository,
+        innerTubeRepository,
+        newPipeRepository,
+        fallbackRepository
+    )
+
     override suspend fun getTrendingVideos(): Result<List<Video>> {
-        val r1 = primaryRepository.getTrendingVideos()
-        if (r1.isSuccess && r1.getOrNull()?.isNotEmpty() == true) {
-            return r1
+        for (repo in pipeline) {
+            val result = repo.getTrendingVideos()
+            if (result.isSuccess && result.getOrNull()?.isNotEmpty() == true) {
+                return result
+            }
         }
-
-        val r2 = secondaryRepository.getTrendingVideos()
-        if (r2.isSuccess && r2.getOrNull()?.isNotEmpty() == true) {
-            return r2
-        }
-
         return fallbackRepository.getTrendingVideos()
     }
 
     override suspend fun search(query: String): Result<List<SearchResult>> {
-        val r1 = primaryRepository.search(query)
-        if (r1.isSuccess && r1.getOrNull()?.isNotEmpty() == true) {
-            return r1
+        for (repo in pipeline) {
+            val result = repo.search(query)
+            if (result.isSuccess && result.getOrNull()?.isNotEmpty() == true) {
+                return result
+            }
         }
-
-        val r2 = secondaryRepository.search(query)
-        if (r2.isSuccess && r2.getOrNull()?.isNotEmpty() == true) {
-            return r2
-        }
-
         return fallbackRepository.search(query)
     }
 
     override suspend fun getVideoDetails(videoId: String): Result<Video> {
-        val r1 = primaryRepository.getVideoDetails(videoId)
-        if (r1.isSuccess && r1.getOrNull() != null) {
-            return r1
+        for (repo in pipeline) {
+            val result = repo.getVideoDetails(videoId)
+            if (result.isSuccess && result.getOrNull() != null) {
+                return result
+            }
         }
-
-        val r2 = secondaryRepository.getVideoDetails(videoId)
-        if (r2.isSuccess && r2.getOrNull() != null) {
-            return r2
-        }
-
         return fallbackRepository.getVideoDetails(videoId)
     }
 
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
-        val r1 = primaryRepository.getStreamInfo(videoId)
-        if (r1.isSuccess && r1.getOrNull()?.videoStreams?.isNotEmpty() == true) {
-            return r1
+        for (repo in pipeline) {
+            val result = repo.getStreamInfo(videoId)
+            val info = result.getOrNull()
+            if (result.isSuccess && info != null && (info.videoStreams.isNotEmpty() || !info.hlsUrl.isNullOrEmpty() || info.audioStreams.isNotEmpty())) {
+                return result
+            }
         }
-
-        val r2 = secondaryRepository.getStreamInfo(videoId)
-        if (r2.isSuccess && r2.getOrNull()?.videoStreams?.isNotEmpty() == true) {
-            return r2
-        }
-
         return fallbackRepository.getStreamInfo(videoId)
     }
 }

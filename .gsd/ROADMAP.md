@@ -29,5 +29,6 @@
 - [x] `CascadingYouTubeRepository` (Invidious -> NewPipe -> Fake fallback)
 
 ## Phase 5: Native InnerTube Engine
-- [ ] Client context & Innertube endpoint requests
-- [ ] Stream extraction, PoToken & Cipher handling
+- [x] Client context & Innertube endpoint requests (WEB, ANDROID_TESTSUITE)
+- [x] Stream extraction & metadata parser
+- [x] 4-Tier Cascading Repository pipeline (Invidious -> InnerTube -> NewPipe -> Fake)

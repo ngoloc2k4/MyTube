@@ -24,7 +24,8 @@
   - `NewPipeYouTubeRepository`
   - `CascadingYouTubeRepository` (Invidious -> NewPipe -> Fake fallback)
 
-## Next Phase: Phase 5 (Native InnerTube Engine)
-- Tự động sinh Client Context (WEB, ANDROID, TV)
-- Gọi trực tiếp YouTube InnerTube API endpoints (/browse, /search, /player)
-- Tích hợp InnerTube vào Fallback Pipeline đa nguồn
+- [ ] **Phase 5: Native InnerTube Engine** (In verification)
+  - `InnerTubeClient` (Client Context, /browse, /search, /player)
+  - `InnerTubeParser` (JSON recursive renderers & streamingData)
+  - `InnerTubeYouTubeRepository`
+  - 4-Tier `CascadingYouTubeRepository` Pipeline
