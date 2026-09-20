@@ -18,10 +18,13 @@
   - `MiniPlayer` (bottom bar, progress line, play/pause, dismiss)
   - `FullPlayer` (`PlayerView` surface, seekbar, gestures, 10s skip, back-collapse)
 
-- [ ] **Phase 4: NewPipeExtractor Integration** (In verification)
+- [x] **Phase 4: NewPipeExtractor Integration** (Verified, Run ID: 35509204891 in 3m27s)
   - Thư viện NewPipeExtractor + JDK NIO Desugaring
   - `NewPipeDownloader` (OkHttp implementation)
   - `NewPipeYouTubeRepository`
   - `CascadingYouTubeRepository` (Invidious -> NewPipe -> Fake fallback)
 
 ## Next Phase: Phase 5 (Native InnerTube Engine)
+- Tự động sinh Client Context (WEB, ANDROID, TV)
+- Gọi trực tiếp YouTube InnerTube API endpoints (/browse, /search, /player)
+- Tích hợp InnerTube vào Fallback Pipeline đa nguồn

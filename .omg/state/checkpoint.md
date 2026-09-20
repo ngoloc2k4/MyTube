@@ -1,6 +1,7 @@
 # Checkpoint — MyTube
 
-- **Timestamp:** 2026-09-20T11:50:55Z
-- **Commit Baseline:** `ad3be05`
-- **Latest CI Run:** 35508358662 (Phase 3 Verified)
-- **Current Milestone:** Phase 4 (NewPipeExtractor Integration)
+- **Timestamp:** 2026-09-20T12:00:20Z
+- **Commit Baseline:** `c7c0577`
+- **Latest CI Run:** 35509204891 (Phase 4 Verified — NewPipeExtractor & Cascading Fallback)
+- **Status:** All Phase 4 acceptance criteria passed.
+- **Next Milestone:** Phase 5 (Native InnerTube Engine)
