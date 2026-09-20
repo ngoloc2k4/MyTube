@@ -53,6 +53,8 @@ class NewPipeYouTubeRepository(
 
             val bestThumb = streamExtractor.thumbnails.maxByOrNull { it.width }?.url
                 ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+            val bestAvatar = streamExtractor.uploaderAvatars.maxByOrNull { it.width }?.url
+                ?: "https://picsum.photos/seed/$videoId/120/120"
 
             Video(
                 id = videoId,
@@ -60,7 +62,7 @@ class NewPipeYouTubeRepository(
                 channel = Channel(
                     id = streamExtractor.uploaderUrl?.substringAfterLast("/").orEmpty(),
                     name = streamExtractor.uploaderName.orEmpty(),
-                    avatarUrl = streamExtractor.uploaderAvatarUrl.orEmpty(),
+                    avatarUrl = bestAvatar,
                     subscriberCountText = ""
                 ),
                 durationSeconds = streamExtractor.length,
@@ -79,7 +81,7 @@ class NewPipeYouTubeRepository(
 
             val videoStreams = streamExtractor.videoStreams.map { vs ->
                 VideoStream(
-                    url = vs.url,
+                    url = vs.url.orEmpty(),
                     quality = vs.resolution.orEmpty(),
                     format = vs.format?.name.orEmpty().lowercase(),
                     bitrate = vs.bitrate.toLong()
@@ -88,7 +90,7 @@ class NewPipeYouTubeRepository(
 
             val audioStreams = streamExtractor.audioStreams.map { asStream ->
                 AudioStream(
-                    url = asStream.url,
+                    url = asStream.url.orEmpty(),
                     quality = asStream.quality.orEmpty(),
                     format = asStream.format?.name.orEmpty().lowercase(),
                     bitrate = asStream.bitrate.toLong()
@@ -101,7 +103,7 @@ class NewPipeYouTubeRepository(
                 videoStreams = videoStreams,
                 audioStreams = audioStreams,
                 hlsUrl = streamExtractor.hlsUrl,
-                dashUrl = streamExtractor.dashUrl
+                dashUrl = streamExtractor.dashMpdUrl
             )
         }
     }
@@ -110,6 +112,8 @@ class NewPipeYouTubeRepository(
         val videoId = url.substringAfter("v=").substringBefore("&")
         val thumb = thumbnails.maxByOrNull { it.width }?.url
             ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+        val avatar = uploaderAvatars.maxByOrNull { it.width }?.url
+            ?: "https://picsum.photos/seed/$videoId/120/120"
 
         return Video(
             id = videoId,
@@ -117,7 +121,7 @@ class NewPipeYouTubeRepository(
             channel = Channel(
                 id = uploaderUrl?.substringAfterLast("/").orEmpty(),
                 name = uploaderName.orEmpty(),
-                avatarUrl = uploaderAvatarUrl.orEmpty(),
+                avatarUrl = avatar,
                 subscriberCountText = ""
             ),
             durationSeconds = duration,
