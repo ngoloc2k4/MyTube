@@ -88,10 +88,11 @@ class NewPipeYouTubeRepository(
 
             val videoStreams = mutableListOf<VideoStream>()
             streamExtractor.videoStreams?.forEach { vs ->
-                if (!vs.url.isNullOrEmpty()) {
+                val streamUrl = vs.url
+                if (!streamUrl.isNullOrEmpty()) {
                     videoStreams.add(
                         VideoStream(
-                            url = vs.url,
+                            url = streamUrl,
                             quality = vs.resolution.orEmpty(),
                             format = vs.format?.name.orEmpty().lowercase(),
                             bitrate = vs.bitrate.toLong()
@@ -103,10 +104,11 @@ class NewPipeYouTubeRepository(
             // Also include video-only streams if progressive streams are unavailable
             if (videoStreams.isEmpty()) {
                 streamExtractor.videoOnlyStreams?.forEach { vs ->
-                    if (!vs.url.isNullOrEmpty()) {
+                    val streamUrl = vs.url
+                    if (!streamUrl.isNullOrEmpty()) {
                         videoStreams.add(
                             VideoStream(
-                                url = vs.url,
+                                url = streamUrl,
                                 quality = vs.resolution.orEmpty(),
                                 format = vs.format?.name.orEmpty().lowercase(),
                                 bitrate = vs.bitrate.toLong()
@@ -117,9 +119,10 @@ class NewPipeYouTubeRepository(
             }
 
             val audioStreams = streamExtractor.audioStreams?.mapNotNull { asStream ->
-                if (asStream.url.isNullOrEmpty()) null
+                val audioUrl = asStream.url
+                if (audioUrl.isNullOrEmpty()) null
                 else AudioStream(
-                    url = asStream.url,
+                    url = audioUrl,
                     quality = asStream.quality.orEmpty(),
                     format = asStream.format?.name.orEmpty().lowercase(),
                     bitrate = asStream.bitrate.toLong()
