@@ -12,10 +12,12 @@
   - OkHttp + Kotlinx Serialization
   - Multi-instance rotation for Invidious API
   - Seamless fallback to `FakeYouTubeRepository`
-- [ ] **Phase 3: Media3 Playback Engine** (In verification)
+- [x] **Phase 3: Media3 Playback Engine** (Verified, Run ID: 35508358662 in 2m29s)
   - `PlaybackService` (`MediaSessionService`) background playback & media notification
   - `PlayerViewModel` + `PlayerUiState` with `MediaController`
   - `MiniPlayer` (bottom bar, progress line, play/pause, dismiss)
   - `FullPlayer` (`PlayerView` surface, seekbar, gestures, 10s skip, back-collapse)
 
 ## Next Phase: Phase 4 (NewPipeExtractor Integration)
+- Tích hợp thư viện NewPipeExtractor
+- Cơ chế Fallback Pipeline đa tầng: Invidious -> NewPipeExtractor -> Fake fallback
