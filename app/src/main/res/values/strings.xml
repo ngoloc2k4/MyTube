@@ -47,4 +47,14 @@
     <string name="nav_music">Music</string>
     <string name="nav_library">Library</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Playback Controls -->
+    <string name="skip_previous">Previous video</string>
+    <string name="skip_next">Next video</string>
+    <string name="audio_mode">Audio mode</string>
+    <string name="video_quality">Quality</string>
+    <string name="playback_speed">Speed</string>
+    <string name="fullscreen_toggle">Fullscreen</string>
+    <string name="related_videos_title">Related videos</string>
+    <string name="queue_title">Up next in queue</string>
 </resources>

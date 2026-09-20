@@ -31,6 +31,8 @@ import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.db.entity.LikedVideoEntity
 import vn.lobie.mytube.data.local.db.entity.SubscriptionEntity
 import vn.lobie.mytube.data.local.db.entity.WatchHistoryEntity
+import vn.lobie.mytube.domain.model.SearchResult
+import vn.lobie.mytube.domain.model.StreamInfo
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 import vn.lobie.mytube.playback.PlaybackService
@@ -169,14 +171,40 @@ class PlayerViewModel(
         }, ContextCompat.getMainExecutor(context))
     }
 
-    fun playVideo(video: Video) {
+    private var currentStreamInfo: StreamInfo? = null
+    private var relatedVideosJob: Job? = null
+
+    fun playVideo(
+        video: Video,
+        queue: List<Video> = emptyList(),
+        queueIndex: Int = 0
+    ) {
+        val effectiveQueue = if (queue.isNotEmpty()) queue else listOf(video)
+        val effectiveIndex = if (queue.isNotEmpty()) queueIndex else 0
+
+        relatedVideosJob?.cancel()
         _uiState.update {
             it.copy(
                 currentVideo = video,
+                queue = effectiveQueue,
+                currentQueueIndex = effectiveIndex,
                 isLoading = true,
                 isExpanded = true,
-                errorMessage = null
+                currentPositionMs = 0L,
+                errorMessage = null,
+                isLoadingRelated = true
             )
+        }
+
+        // Load related videos asynchronously
+        relatedVideosJob = viewModelScope.launch {
+            val query = video.channel.name.ifBlank { video.title.split(" ").take(3).joinToString(" ") }
+            val relatedResult = repository.search(query)
+            val list = relatedResult.getOrNull()?.mapNotNull { item ->
+                if (item is SearchResult.VideoItem && item.video.id != video.id) item.video else null
+            }?.distinctBy { it.id } ?: emptyList()
+
+            _uiState.update { it.copy(relatedVideos = list, isLoadingRelated = false) }
         }
 
         // Record watch history asynchronously
@@ -214,39 +242,135 @@ class PlayerViewModel(
         viewModelScope.launch {
             val streamResult = repository.getStreamInfo(video.id)
             val streamInfo = streamResult.getOrNull()
+            currentStreamInfo = streamInfo
 
-            // Ưu tiên:
-            // 1. HLS stream (m3u8) nếu có
-            // 2. Combined / progressive VideoStream
-            // 3. AudioStream nếu chỉ có audio
-            // 4. Test fallback MP4 (verified working public stream)
-            val playableUrl = streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
-                ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                ?: FALLBACK_SAMPLE_STREAM
+            val qualities = streamInfo?.videoStreams
+                ?.map { it.quality }
+                ?.filter { it.isNotBlank() }
+                ?.distinct() ?: emptyList()
+            val availableQualities = if (qualities.isNotEmpty()) listOf("Auto") + qualities else listOf("Auto")
 
-            android.util.Log.d("PlayerViewModel", "Resolved stream for ${video.id} -> $playableUrl")
-
-            val mediaItem = MediaItem.Builder()
-                .setUri(playableUrl)
-                .setMediaId(video.id)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(video.title)
-                        .setArtist(video.channel.name)
-                        .setArtworkUri(Uri.parse(video.thumbnailUrl))
-                        .build()
+            _uiState.update {
+                it.copy(
+                    availableQualities = availableQualities,
+                    selectedQuality = "Auto"
                 )
-                .build()
-
-            val p = player
-            if (p != null) {
-                p.setMediaItem(mediaItem)
-                p.prepare()
-                p.play()
-            } else {
-                pendingMediaItem = mediaItem
             }
+
+            val playableUrl = if (_uiState.value.isAudioOnly) {
+                streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                    ?: streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
+                    ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                    ?: FALLBACK_SAMPLE_STREAM
+            } else {
+                streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
+                    ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                    ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                    ?: FALLBACK_SAMPLE_STREAM
+            }
+
+            setPlayerMedia(playableUrl, video, 0L)
+        }
+    }
+
+    private fun setPlayerMedia(url: String, video: Video, startPositionMs: Long) {
+        val mediaItem = MediaItem.Builder()
+            .setUri(url)
+            .setMediaId(video.id)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(video.title)
+                    .setArtist(video.channel.name)
+                    .setArtworkUri(Uri.parse(video.thumbnailUrl))
+                    .build()
+            )
+            .build()
+
+        val p = player
+        if (p != null) {
+            p.setMediaItem(mediaItem)
+            p.prepare()
+            if (startPositionMs > 0L) {
+                p.seekTo(startPositionMs)
+            }
+            p.setPlaybackSpeed(_uiState.value.playbackSpeed)
+            p.play()
+        } else {
+            pendingMediaItem = mediaItem
+        }
+    }
+
+    fun selectQuality(quality: String) {
+        val info = currentStreamInfo ?: return
+        val video = _uiState.value.currentVideo ?: return
+        val currentPos = player?.currentPosition ?: 0L
+
+        val url = if (quality == "Auto" || quality.isBlank()) {
+            info.hlsUrl?.takeIf { it.isNotBlank() }
+                ?: info.videoStreams.firstOrNull { it.url.isNotBlank() }?.url
+                ?: info.audioStreams.firstOrNull { it.url.isNotBlank() }?.url
+        } else {
+            info.videoStreams.firstOrNull { it.quality.equals(quality, ignoreCase = true) }?.url
+                ?: info.videoStreams.firstOrNull { it.quality.contains(quality, ignoreCase = true) }?.url
+                ?: info.videoStreams.firstOrNull()?.url
+        } ?: return
+
+        _uiState.update { it.copy(selectedQuality = quality) }
+        setPlayerMedia(url, video, currentPos)
+    }
+
+    fun toggleAudioOnly() {
+        val info = currentStreamInfo ?: return
+        val video = _uiState.value.currentVideo ?: return
+        val currentPos = player?.currentPosition ?: 0L
+        val newAudioOnly = !_uiState.value.isAudioOnly
+
+        val url = if (newAudioOnly) {
+            info.audioStreams.firstOrNull { it.url.isNotBlank() }?.url
+                ?: info.videoStreams.firstOrNull { it.url.isNotBlank() }?.url
+        } else {
+            info.hlsUrl?.takeIf { it.isNotBlank() }
+                ?: info.videoStreams.firstOrNull { it.url.isNotBlank() }?.url
+        } ?: return
+
+        _uiState.update { it.copy(isAudioOnly = newAudioOnly) }
+        setPlayerMedia(url, video, currentPos)
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        player?.setPlaybackSpeed(speed)
+        _uiState.update { it.copy(playbackSpeed = speed) }
+    }
+
+    fun toggleFullscreen() {
+        _uiState.update { it.copy(isFullscreen = !it.isFullscreen) }
+    }
+
+    fun setFullscreen(fullscreen: Boolean) {
+        _uiState.update { it.copy(isFullscreen = fullscreen) }
+    }
+
+    fun playNext() {
+        val state = _uiState.value
+        if (state.queue.isNotEmpty() && state.currentQueueIndex < state.queue.lastIndex) {
+            val nextIndex = state.currentQueueIndex + 1
+            playVideo(state.queue[nextIndex], state.queue, nextIndex)
+        } else if (state.relatedVideos.isNotEmpty()) {
+            val nextVideo = state.relatedVideos.first()
+            playVideo(nextVideo)
+        }
+    }
+
+    fun playPrevious() {
+        val state = _uiState.value
+        val currentPos = player?.currentPosition ?: 0L
+        if (currentPos > 3000L) {
+            seekTo(0L)
+        } else if (state.currentQueueIndex > 0 && state.queue.isNotEmpty()) {
+            val prevIndex = state.currentQueueIndex - 1
+            playVideo(state.queue[prevIndex], state.queue, prevIndex)
+        } else {
+            seekTo(0L)
         }
     }
 
@@ -274,7 +398,7 @@ class PlayerViewModel(
     }
 
     fun setSpeed(speed: Float) {
-        player?.setPlaybackSpeed(speed)
+        setPlaybackSpeed(speed)
     }
 
     fun expand() {

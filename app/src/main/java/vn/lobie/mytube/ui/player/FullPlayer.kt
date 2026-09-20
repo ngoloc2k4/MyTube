@@ -1,6 +1,8 @@
 package vn.lobie.mytube.ui.player
 
+import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -11,11 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -41,7 +42,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import vn.lobie.mytube.R
+import vn.lobie.mytube.domain.model.Video
+import vn.lobie.mytube.ui.components.VideoCard
 import vn.lobie.mytube.ui.util.formatViews
 
 @OptIn(UnstableApi::class)
@@ -54,8 +59,14 @@ fun FullPlayer(
     onSeek: (Long) -> Unit,
     onSeekBy: (Long) -> Unit,
     onSetSpeed: (Float) -> Unit = {},
+    onPlayNext: () -> Unit = {},
+    onPlayPrevious: () -> Unit = {},
+    onSelectQuality: (String) -> Unit = {},
+    onToggleAudioOnly: () -> Unit = {},
+    onToggleFullscreen: () -> Unit = {},
     onToggleLike: () -> Unit = {},
     onToggleSubscribe: () -> Unit = {},
+    onSelectVideo: (Video) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -63,284 +74,562 @@ fun FullPlayer(
     val context = LocalContext.current
     var isSaved by remember(video.id) { mutableStateOf(false) }
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
+    var showQualityDialog by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
 
-    // Intercept back button to collapse to mini-player
+    // Manage screen orientation for fullscreen mode
+    DisposableEffect(uiState.isFullscreen) {
+        val activity = context as? Activity
+        if (uiState.isFullscreen) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    // Intercept back button: exit fullscreen first, or collapse to miniplayer
     BackHandler {
-        onCollapse()
+        if (uiState.isFullscreen) {
+            onToggleFullscreen()
+        } else {
+            onCollapse()
+        }
     }
 
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-        ) {
-            // Header Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onCollapse) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.minimize_player),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = video.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f)
+        if (uiState.isFullscreen) {
+            // In Fullscreen mode, the video fills the entire screen
+            Box(modifier = Modifier.fillMaxSize()) {
+                VideoPlayerSurface(
+                    player = player,
+                    uiState = uiState,
+                    controlsVisible = controlsVisible,
+                    onToggleControls = { controlsVisible = !controlsVisible },
+                    onTogglePlayPause = onTogglePlayPause,
+                    onSeekBy = onSeekBy,
+                    onSetSpeed = onSetSpeed,
+                    onPlayNext = onPlayNext,
+                    onPlayPrevious = onPlayPrevious,
+                    onToggleFullscreen = onToggleFullscreen,
+                    onOpenQualityDialog = { showQualityDialog = true },
+                    onOpenSpeedDialog = { showSpeedDialog = true },
+                    onCollapse = onCollapse,
+                    onSeek = onSeek,
+                    modifier = Modifier.fillMaxSize()
                 )
             }
-
-            // Video Player Surface
-            VideoPlayerSurface(
-                player = player,
-                uiState = uiState,
-                controlsVisible = controlsVisible,
-                onToggleControls = { controlsVisible = !controlsVisible },
-                onTogglePlayPause = onTogglePlayPause,
-                onSeekBy = onSeekBy,
-                onSetSpeed = onSetSpeed,
-                onCollapse = onCollapse,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-            )
-
-            // Seek Bar & Time Indicators
+        } else {
+            // Standard portrait mode layout
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxSize()
+                    .statusBarsPadding()
             ) {
-                Slider(
-                    value = uiState.currentPositionMs.toFloat(),
-                    onValueChange = { onSeek(it.toLong()) },
-                    valueRange = 0f..uiState.durationMs.toFloat().coerceAtLeast(1f),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-
+                // Top Header Bar
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = formatTime(uiState.currentPositionMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatTime(uiState.durationMs),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Video Details & Description Scrollable section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = video.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = "${formatViews(video.viewCount)} • ${video.publishedTimeText}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Channel Info Row
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    AsyncImage(
-                        model = video.channel.avatarUrl,
-                        contentDescription = video.channel.name,
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = video.channel.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                    IconButton(onClick = onCollapse) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.minimize_player),
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
-                        if (video.channel.subscriberCountText.isNotEmpty()) {
-                            Text(
-                                text = video.channel.subscriberCountText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
-
-                    Button(
-                        onClick = onToggleSubscribe,
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface,
-                            contentColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.surface
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = video.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onToggleFullscreen) {
+                        Icon(
+                            imageVector = Icons.Default.Fullscreen,
+                            contentDescription = stringResource(R.string.fullscreen_toggle),
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
+                    }
+                }
+
+                // Video Player Surface
+                VideoPlayerSurface(
+                    player = player,
+                    uiState = uiState,
+                    controlsVisible = controlsVisible,
+                    onToggleControls = { controlsVisible = !controlsVisible },
+                    onTogglePlayPause = onTogglePlayPause,
+                    onSeekBy = onSeekBy,
+                    onSetSpeed = onSetSpeed,
+                    onPlayNext = onPlayNext,
+                    onPlayPrevious = onPlayPrevious,
+                    onToggleFullscreen = onToggleFullscreen,
+                    onOpenQualityDialog = { showQualityDialog = true },
+                    onOpenSpeedDialog = { showSpeedDialog = true },
+                    onCollapse = onCollapse,
+                    onSeek = onSeek,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                )
+
+                // Seek Bar & Time Indicators
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Slider(
+                        value = uiState.currentPositionMs.toFloat(),
+                        onValueChange = { onSeek(it.toLong()) },
+                        valueRange = 0f..uiState.durationMs.toFloat().coerceAtLeast(1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = stringResource(if (uiState.isSubscribed) R.string.subscribed_button else R.string.subscribe_button),
-                            style = MaterialTheme.typography.labelMedium
+                            text = formatTime(uiState.currentPositionMs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = formatTime(uiState.durationMs),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Action Bar: Like, Share, Save, Download
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Video Details, Actions, Queue & Related Videos
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
                 ) {
-                    item {
-                        FilledTonalButton(
-                            onClick = onToggleLike,
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                        ) {
-                            Icon(
-                                imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
-                                contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
+                    Text(
+                        text = video.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    item {
-                        FilledTonalButton(
-                            onClick = {
-                                val sendIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, "${video.title}\nhttps://youtu.be/${video.id}")
-                                    type = "text/plain"
-                                }
-                                val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_video_title))
-                                context.startActivity(shareIntent)
-                            },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = stringResource(R.string.action_share),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = stringResource(R.string.action_share), style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    item {
-                        FilledTonalButton(
-                            onClick = { isSaved = !isSaved },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                contentDescription = stringResource(if (isSaved) R.string.action_saved else R.string.action_save),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isSaved) stringResource(R.string.action_saved) else stringResource(R.string.action_save),
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
+                    Text(
+                        text = "${formatViews(video.viewCount)} • ${video.publishedTimeText}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                    item {
-                        FilledTonalButton(
-                            onClick = { /* Future: Offline Download */ },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = stringResource(R.string.action_download),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = stringResource(R.string.action_download), style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-
-                if (video.description.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isDescriptionExpanded = !isDescriptionExpanded }
-                            .animateContentSize()
+
+                    // Channel Info Row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        AsyncImage(
+                            model = video.channel.avatarUrl,
+                            contentDescription = video.channel.name,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = video.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
-                                overflow = TextOverflow.Ellipsis,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = video.channel.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        Button(
+                            onClick = onToggleSubscribe,
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.onSurface,
+                                contentColor = if (uiState.isSubscribed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.surface
+                            )
+                        ) {
                             Text(
-                                text = stringResource(if (isDescriptionExpanded) R.string.show_less else R.string.show_more),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                text = stringResource(if (uiState.isSubscribed) R.string.subscribed_button else R.string.subscribe_button),
+                                style = MaterialTheme.typography.labelMedium
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Action Bar: Like, Audio Mode, Quality, Speed, Share, Save
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Like Button
+                        item {
+                            FilledTonalButton(
+                                onClick = onToggleLike,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                    contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        // Audio-Only Mode Toggle
+                        item {
+                            FilledTonalButton(
+                                onClick = onToggleAudioOnly,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.isAudioOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isAudioOnly) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Headphones,
+                                    contentDescription = stringResource(R.string.audio_mode),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (uiState.isAudioOnly) "Audio ON" else stringResource(R.string.audio_mode),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        // Quality Picker Button
+                        item {
+                            FilledTonalButton(
+                                onClick = { showQualityDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HighQuality,
+                                    contentDescription = stringResource(R.string.video_quality),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = uiState.selectedQuality,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        // Speed Picker Button
+                        item {
+                            FilledTonalButton(
+                                onClick = { showSpeedDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Speed,
+                                    contentDescription = stringResource(R.string.playback_speed),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "${uiState.playbackSpeed}x",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        // Share Button
+                        item {
+                            FilledTonalButton(
+                                onClick = {
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, "${video.title}\nhttps://youtu.be/${video.id}")
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_video_title))
+                                    context.startActivity(shareIntent)
+                                },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = stringResource(R.string.action_share),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = stringResource(R.string.action_share), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        // Save Button
+                        item {
+                            FilledTonalButton(
+                                onClick = { isSaved = !isSaved },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                    contentDescription = stringResource(if (isSaved) R.string.action_saved else R.string.action_save),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isSaved) stringResource(R.string.action_saved) else stringResource(R.string.action_save),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                    }
+
+                    // Expandable Description Box
+                    if (video.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isDescriptionExpanded = !isDescriptionExpanded }
+                                .animateContentSize()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = video.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = if (isDescriptionExpanded) Int.MAX_VALUE else 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(if (isDescriptionExpanded) R.string.show_less else R.string.show_more),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    // Playlist Queue Section (if queue has multiple items)
+                    if (uiState.queue.size > 1) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.queue_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${uiState.currentQueueIndex + 1} / ${uiState.queue.size}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    itemsIndexed(uiState.queue) { idx, qVideo ->
+                                        val isCurrent = idx == uiState.currentQueueIndex
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                            modifier = Modifier
+                                                .width(140.dp)
+                                                .clickable { onSelectVideo(qVideo) }
+                                        ) {
+                                            Column(modifier = Modifier.padding(6.dp)) {
+                                                AsyncImage(
+                                                    model = qVideo.thumbnailUrl,
+                                                    contentDescription = qVideo.title,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(78.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = qVideo.title,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Related Videos / Up Next Section
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = stringResource(R.string.related_videos_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (uiState.isLoadingRelated) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (uiState.relatedVideos.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_videos_found),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uiState.relatedVideos.forEach { relVideo ->
+                                VideoCard(
+                                    video = relVideo,
+                                    onClick = { onSelectVideo(relVideo) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    // Quality Selection Dialog
+    if (showQualityDialog) {
+        AlertDialog(
+            onDismissRequest = { showQualityDialog = false },
+            title = { Text(stringResource(R.string.video_quality)) },
+            text = {
+                Column {
+                    uiState.availableQualities.forEach { q ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelectQuality(q)
+                                    showQualityDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = q == uiState.selectedQuality,
+                                onClick = {
+                                    onSelectQuality(q)
+                                    showQualityDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(text = q, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showQualityDialog = false }) {
+                    Text(stringResource(R.string.clear_action))
+                }
+            }
+        )
+    }
+
+    // Speed Selection Dialog
+    if (showSpeedDialog) {
+        val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+        AlertDialog(
+            onDismissRequest = { showSpeedDialog = false },
+            title = { Text(stringResource(R.string.playback_speed)) },
+            text = {
+                Column {
+                    speeds.forEach { s ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSetSpeed(s)
+                                    showSpeedDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = s == uiState.playbackSpeed,
+                                onClick = {
+                                    onSetSpeed(s)
+                                    showSpeedDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (s == 1.0f) "1.0x (Normal)" else "${s}x",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSpeedDialog = false }) {
+                    Text(stringResource(R.string.clear_action))
+                }
+            }
+        )
     }
 }
 
@@ -354,7 +643,13 @@ private fun VideoPlayerSurface(
     onTogglePlayPause: () -> Unit,
     onSeekBy: (Long) -> Unit,
     onSetSpeed: (Float) -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrevious: () -> Unit,
+    onToggleFullscreen: () -> Unit,
+    onOpenQualityDialog: () -> Unit,
+    onOpenSpeedDialog: () -> Unit,
     onCollapse: () -> Unit,
+    onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -368,7 +663,7 @@ private fun VideoPlayerSurface(
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onVerticalDrag = { _, dragAmount ->
-                        if (dragAmount > 50f) {
+                        if (dragAmount > 50f && !uiState.isFullscreen) {
                             onCollapse()
                         }
                     }
@@ -398,7 +693,7 @@ private fun VideoPlayerSurface(
                         coroutineScope.launch {
                             delay(2500)
                             isSpeedBoosted = false
-                            onSetSpeed(1.0f)
+                            onSetSpeed(uiState.playbackSpeed)
                         }
                     }
                 )
@@ -496,57 +791,133 @@ private fun VideoPlayerSurface(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
+                    .background(Color.Black.copy(alpha = 0.5f))
             ) {
+                // Top controls row inside overlay
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Quality indicator chip
+                    AssistChip(
+                        onClick = onOpenQualityDialog,
+                        label = { Text(uiState.selectedQuality, fontSize = 11.sp, color = Color.White) },
+                        colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    // Speed indicator chip
+                    AssistChip(
+                        onClick = onOpenSpeedDialog,
+                        label = { Text("${uiState.playbackSpeed}x", fontSize = 11.sp, color = Color.White) },
+                        colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    // Fullscreen toggle button
+                    IconButton(onClick = onToggleFullscreen) {
+                        Icon(
+                            imageVector = if (uiState.isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                            contentDescription = stringResource(R.string.fullscreen_toggle),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                // Center playback controls: SkipPrevious | Play/Pause | SkipNext
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .align(Alignment.Center)
                     )
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.Center)
                     ) {
+                        // Previous Video Button
                         IconButton(
-                            onClick = { onSeekBy(-10_000L) },
-                            modifier = Modifier.size(48.dp)
+                            onClick = onPlayPrevious,
+                            modifier = Modifier.size(54.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Replay10,
-                                contentDescription = stringResource(R.string.rewind_10s),
+                                imageVector = Icons.Default.SkipPrevious,
+                                contentDescription = stringResource(R.string.skip_previous),
                                 tint = Color.White,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(38.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(28.dp))
+                        Spacer(modifier = Modifier.width(36.dp))
 
+                        // Play/Pause Button
                         IconButton(
                             onClick = onTogglePlayPause,
-                            modifier = Modifier.size(64.dp)
+                            modifier = Modifier.size(68.dp)
                         ) {
                             Icon(
                                 imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = stringResource(if (uiState.isPlaying) R.string.pause_action else R.string.play_action),
                                 tint = Color.White,
-                                modifier = Modifier.size(48.dp)
+                                modifier = Modifier.size(52.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(28.dp))
+                        Spacer(modifier = Modifier.width(36.dp))
 
+                        // Next Video Button
                         IconButton(
-                            onClick = { onSeekBy(10_000L) },
-                            modifier = Modifier.size(48.dp)
+                            onClick = onPlayNext,
+                            modifier = Modifier.size(54.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Forward10,
-                                contentDescription = stringResource(R.string.forward_10s),
+                                imageVector = Icons.Default.SkipNext,
+                                contentDescription = stringResource(R.string.skip_next),
                                 tint = Color.White,
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(38.dp)
+                            )
+                        }
+                    }
+                }
+
+                // In Fullscreen mode: show seek bar at the bottom inside the overlay
+                if (uiState.isFullscreen) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Slider(
+                            value = uiState.currentPositionMs.toFloat(),
+                            onValueChange = { onSeek(it.toLong()) },
+                            valueRange = 0f..uiState.durationMs.toFloat().coerceAtLeast(1f),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = formatTime(uiState.currentPositionMs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
+                            Text(
+                                text = formatTime(uiState.durationMs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
                             )
                         }
                     }

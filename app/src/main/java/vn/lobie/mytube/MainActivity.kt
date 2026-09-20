@@ -29,6 +29,8 @@ import vn.lobie.mytube.ui.settings.SettingsScreen
 import vn.lobie.mytube.ui.settings.SettingsViewModel
 import vn.lobie.mytube.ui.subscriptions.SubscriptionsScreen
 import vn.lobie.mytube.ui.subscriptions.SubscriptionsViewModel
+import vn.lobie.mytube.ui.music.MusicScreen
+import vn.lobie.mytube.ui.music.MusicViewModel
 import vn.lobie.mytube.ui.navigation.AppBottomBar
 import vn.lobie.mytube.ui.navigation.AppTab
 import vn.lobie.mytube.ui.navigation.PlaceholderTabScreen
@@ -66,6 +68,9 @@ class MainActivity : ComponentActivity() {
                     val settingsViewModel: SettingsViewModel = viewModel {
                         SettingsViewModel(application, settingsDataStore)
                     }
+                    val musicViewModel: MusicViewModel = viewModel {
+                        MusicViewModel(application, repository)
+                    }
 
                     val playerUiState by playerViewModel.uiState.collectAsState()
                     var currentTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -95,11 +100,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppTab.MUSIC -> {
-                                PlaceholderTabScreen(
-                                    title = "YouTube Music",
-                                    icon = AppTab.MUSIC.icon,
-                                    description = "Stream songs, audio-only playback, and charts",
-                                    bottomPadding = contentBottomPadding
+                                MusicScreen(
+                                    viewModel = musicViewModel,
+                                    bottomPadding = contentBottomPadding,
+                                    onTrackClick = { track, tracks, index ->
+                                        playerViewModel.playVideo(track, tracks, index)
+                                    }
                                 )
                             }
                             AppTab.LIBRARY -> {
@@ -156,8 +162,14 @@ class MainActivity : ComponentActivity() {
                                 onSeek = { playerViewModel.seekTo(it) },
                                 onSeekBy = { playerViewModel.seekBy(it) },
                                 onSetSpeed = { playerViewModel.setSpeed(it) },
+                                onPlayNext = { playerViewModel.playNext() },
+                                onPlayPrevious = { playerViewModel.playPrevious() },
+                                onSelectQuality = { playerViewModel.selectQuality(it) },
+                                onToggleAudioOnly = { playerViewModel.toggleAudioOnly() },
+                                onToggleFullscreen = { playerViewModel.toggleFullscreen() },
                                 onToggleLike = { playerViewModel.toggleLike() },
-                                onToggleSubscribe = { playerViewModel.toggleSubscribe() }
+                                onToggleSubscribe = { playerViewModel.toggleSubscribe() },
+                                onSelectVideo = { playerViewModel.playVideo(it) }
                             )
                         }
                     }
