@@ -18,6 +18,9 @@ interface WatchHistoryDao {
     @Query("SELECT * FROM watch_history ORDER BY timestamp DESC LIMIT :limit")
     fun getRecent(limit: Int): Flow<List<WatchHistoryEntity>>
 
+    @Query("SELECT * FROM watch_history ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentList(limit: Int): List<WatchHistoryEntity>
+
     @Query("SELECT category FROM watch_history WHERE category != '' GROUP BY category ORDER BY COUNT(*) DESC LIMIT :limit")
     suspend fun getTopCategories(limit: Int): List<String>
 

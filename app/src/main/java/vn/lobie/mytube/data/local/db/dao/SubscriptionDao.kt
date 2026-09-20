@@ -18,6 +18,9 @@ interface SubscriptionDao {
     @Query("SELECT * FROM subscriptions ORDER BY subscribedAt DESC")
     fun getAll(): Flow<List<SubscriptionEntity>>
 
+    @Query("SELECT * FROM subscriptions ORDER BY subscribedAt DESC")
+    suspend fun getAllList(): List<SubscriptionEntity>
+
     @Query("SELECT EXISTS(SELECT 1 FROM subscriptions WHERE channelId = :channelId)")
     fun isSubscribed(channelId: String): Flow<Boolean>
 

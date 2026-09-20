@@ -18,6 +18,9 @@ interface HiddenVideoDao {
     @Query("SELECT videoId FROM hidden_videos")
     fun getAllIds(): Flow<List<String>>
 
+    @Query("SELECT videoId FROM hidden_videos")
+    suspend fun getAllHiddenIdsList(): List<String>
+
     @Query("SELECT EXISTS(SELECT 1 FROM hidden_videos WHERE videoId = :videoId)")
     suspend fun isHidden(videoId: String): Boolean
 }

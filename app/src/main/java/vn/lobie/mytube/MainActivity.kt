@@ -25,6 +25,10 @@ import vn.lobie.mytube.ui.home.HomeScreen
 import vn.lobie.mytube.ui.home.HomeViewModel
 import vn.lobie.mytube.ui.library.LibraryScreen
 import vn.lobie.mytube.ui.library.LibraryViewModel
+import vn.lobie.mytube.ui.settings.SettingsScreen
+import vn.lobie.mytube.ui.settings.SettingsViewModel
+import vn.lobie.mytube.ui.subscriptions.SubscriptionsScreen
+import vn.lobie.mytube.ui.subscriptions.SubscriptionsViewModel
 import vn.lobie.mytube.ui.navigation.AppBottomBar
 import vn.lobie.mytube.ui.navigation.AppTab
 import vn.lobie.mytube.ui.navigation.PlaceholderTabScreen
@@ -48,13 +52,19 @@ class MainActivity : ComponentActivity() {
                     val settingsDataStore = remember { SettingsDataStore(applicationContext) }
 
                     val homeViewModel: HomeViewModel = viewModel {
-                        HomeViewModel(repository)
+                        HomeViewModel(repository, database)
                     }
                     val playerViewModel: PlayerViewModel = viewModel {
                         PlayerViewModel(application, repository)
                     }
+                    val subscriptionsViewModel: SubscriptionsViewModel = viewModel {
+                        SubscriptionsViewModel(application, repository)
+                    }
                     val libraryViewModel: LibraryViewModel = viewModel {
                         LibraryViewModel(application)
+                    }
+                    val settingsViewModel: SettingsViewModel = viewModel {
+                        SettingsViewModel(application, settingsDataStore)
                     }
 
                     val playerUiState by playerViewModel.uiState.collectAsState()
@@ -76,11 +86,12 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppTab.SUBSCRIPTIONS -> {
-                                PlaceholderTabScreen(
-                                    title = "Subscriptions",
-                                    icon = AppTab.SUBSCRIPTIONS.icon,
-                                    description = "Track channels & new uploads locally without Google login",
-                                    bottomPadding = contentBottomPadding
+                                SubscriptionsScreen(
+                                    viewModel = subscriptionsViewModel,
+                                    bottomPadding = contentBottomPadding,
+                                    onVideoClick = { video ->
+                                        playerViewModel.playVideo(video)
+                                    }
                                 )
                             }
                             AppTab.MUSIC -> {
@@ -101,10 +112,8 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             AppTab.SETTINGS -> {
-                                PlaceholderTabScreen(
-                                    title = "Settings",
-                                    icon = AppTab.SETTINGS.icon,
-                                    description = "Playback speed, stream quality, gestures, and cache control",
+                                SettingsScreen(
+                                    viewModel = settingsViewModel,
                                     bottomPadding = contentBottomPadding
                                 )
                             }
@@ -146,6 +155,7 @@ class MainActivity : ComponentActivity() {
                                 onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                 onSeek = { playerViewModel.seekTo(it) },
                                 onSeekBy = { playerViewModel.seekBy(it) },
+                                onSetSpeed = { playerViewModel.setSpeed(it) },
                                 onToggleLike = { playerViewModel.toggleLike() },
                                 onToggleSubscribe = { playerViewModel.toggleSubscribe() }
                             )

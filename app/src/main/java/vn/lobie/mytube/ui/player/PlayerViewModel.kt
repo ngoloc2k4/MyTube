@@ -273,6 +273,10 @@ class PlayerViewModel(
         }
     }
 
+    fun setSpeed(speed: Float) {
+        player?.setPlaybackSpeed(speed)
+    }
+
     fun expand() {
         _uiState.update { it.copy(isExpanded = true) }
     }

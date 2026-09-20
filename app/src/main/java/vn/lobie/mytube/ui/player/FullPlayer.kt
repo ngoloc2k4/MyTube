@@ -9,6 +9,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +52,7 @@ fun FullPlayer(
     onTogglePlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
     onSeekBy: (Long) -> Unit,
+    onSetSpeed: (Float) -> Unit = {},
     onToggleLike: () -> Unit = {},
     onToggleSubscribe: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -103,6 +109,8 @@ fun FullPlayer(
                 onToggleControls = { controlsVisible = !controlsVisible },
                 onTogglePlayPause = onTogglePlayPause,
                 onSeekBy = onSeekBy,
+                onSetSpeed = onSetSpeed,
+                onCollapse = onCollapse,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
@@ -344,12 +352,56 @@ private fun VideoPlayerSurface(
     onToggleControls: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSeekBy: (Long) -> Unit,
+    onSetSpeed: (Float) -> Unit,
+    onCollapse: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    var seekFeedbackText by remember { mutableStateOf<String?>(null) }
+    var seekFeedbackIsForward by remember { mutableStateOf(true) }
+    var isSpeedBoosted by remember { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .background(Color.Black)
-            .clickable { onToggleControls() },
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { _, dragAmount ->
+                        if (dragAmount > 50f) {
+                            onCollapse()
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onToggleControls() },
+                    onDoubleTap = { offset ->
+                        val isForward = offset.x >= size.width / 2
+                        seekFeedbackIsForward = isForward
+                        if (isForward) {
+                            onSeekBy(10_000L)
+                            seekFeedbackText = "+10s"
+                        } else {
+                            onSeekBy(-10_000L)
+                            seekFeedbackText = "-10s"
+                        }
+                        coroutineScope.launch {
+                            delay(650)
+                            seekFeedbackText = null
+                        }
+                    },
+                    onLongPress = {
+                        isSpeedBoosted = true
+                        onSetSpeed(2.0f)
+                        coroutineScope.launch {
+                            delay(2500)
+                            isSpeedBoosted = false
+                            onSetSpeed(1.0f)
+                        }
+                    }
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         // ExoPlayer View
@@ -365,6 +417,74 @@ private fun VideoPlayerSurface(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Seek Feedback Indicator (+10s / -10s)
+        if (seekFeedbackText != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = if (seekFeedbackIsForward) Alignment.CenterEnd else Alignment.CenterStart
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.75f),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = if (seekFeedbackIsForward) Icons.Default.FastForward else Icons.Default.FastRewind,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            text = seekFeedbackText.orEmpty(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // Speed Boost Indicator (2X Speed)
+        if (isSpeedBoosted) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Black.copy(alpha = 0.8f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Speed,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "2X Speed",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
 
         // Controls Overlay
         AnimatedVisibility(
