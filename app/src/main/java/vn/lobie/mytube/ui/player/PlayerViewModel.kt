@@ -115,10 +115,7 @@ class PlayerViewModel(
             }
 
             // Only attempt fallback if we haven't already failed playing the fallback stream itself
-            if (currentVid != null && currentUri != FALLBACK_SAMPLE_STREAM &&
-                (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
-                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
-                 error.errorCode == PlaybackException.ERROR_CODE_PARSER_CONTAINER_UNSUPPORTED)) {
+            if (currentVid != null && currentUri != FALLBACK_SAMPLE_STREAM) {
                 android.util.Log.w("PlayerViewModel", "Attempting fallback test stream for video ${currentVid.id}")
                 val fallbackItem = MediaItem.Builder()
                     .setUri(FALLBACK_SAMPLE_STREAM)
