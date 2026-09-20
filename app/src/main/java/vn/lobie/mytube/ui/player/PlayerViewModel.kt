@@ -196,15 +196,41 @@ class PlayerViewModel(
             )
         }
 
-        // Load related videos asynchronously
+        // Load related videos asynchronously with multi-query enrichment
         relatedVideosJob = viewModelScope.launch {
-            val query = video.channel.name.ifBlank { video.title.split(" ").take(3).joinToString(" ") }
-            val relatedResult = repository.search(query)
-            val list = relatedResult.getOrNull()?.mapNotNull { item ->
-                if (item is SearchResult.VideoItem && item.video.id != video.id) item.video else null
-            }?.distinctBy { it.id } ?: emptyList()
+            val results = mutableListOf<Video>()
 
-            _uiState.update { it.copy(relatedVideos = list, isLoadingRelated = false) }
+            // 1. Search by channel
+            if (video.channel.name.isNotBlank()) {
+                val channelResult = repository.search(video.channel.name)
+                channelResult.getOrNull()?.mapNotNull {
+                    if (it is SearchResult.VideoItem && it.video.id != video.id) it.video else null
+                }?.let { results.addAll(it) }
+            }
+
+            // 2. Search by key title keywords
+            val cleanTitleWords = video.title
+                .replace(Regex("[\\[\\]()|•\\-–—_#/@!?,.]"), " ")
+                .split(" ")
+                .filter { it.isNotBlank() && it.length > 2 }
+                .take(4)
+                .joinToString(" ")
+            if (cleanTitleWords.isNotBlank() && cleanTitleWords != video.channel.name) {
+                val titleResult = repository.search(cleanTitleWords)
+                titleResult.getOrNull()?.mapNotNull {
+                    if (it is SearchResult.VideoItem && it.video.id != video.id) it.video else null
+                }?.let { results.addAll(it) }
+            }
+
+            // 3. Complement with trending if few results
+            if (results.size < 6) {
+                repository.getTrendingVideos().getOrNull()?.filter { it.id != video.id }?.let {
+                    results.addAll(it)
+                }
+            }
+
+            val deduped = results.distinctBy { it.id }
+            _uiState.update { it.copy(relatedVideos = deduped, isLoadingRelated = false) }
         }
 
         // Record watch history asynchronously

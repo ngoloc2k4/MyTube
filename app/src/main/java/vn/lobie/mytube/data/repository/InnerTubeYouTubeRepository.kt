@@ -9,6 +9,14 @@ class InnerTubeYouTubeRepository(
     private val client: InnerTubeClient = InnerTubeClient()
 ) : YouTubeRepository {
 
+    fun setRegion(region: String) {
+        client.region = region
+    }
+
+    fun setLanguage(language: String) {
+        client.language = language
+    }
+
     override suspend fun getTrendingVideos(): Result<List<Video>> {
         val result = client.browse("FEtrending")
         return result.mapCatching { json ->

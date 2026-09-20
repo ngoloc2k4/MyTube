@@ -30,12 +30,16 @@ fun SettingsScreen(
     val autoPlayNext by viewModel.autoPlayNext.collectAsState()
     val cacheSizeMb by viewModel.cacheSizeMb.collectAsState()
     val cacheBytes by viewModel.currentCacheBytes.collectAsState()
+    val contentRegion by viewModel.contentRegion.collectAsState()
+    val appLanguage by viewModel.appLanguage.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCacheDialog by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showRegionDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -125,6 +129,46 @@ fun SettingsScreen(
                     title = "Clear Cache Now",
                     subtitle = "Free temporary cached images and video chunks",
                     onClick = { viewModel.clearCache() }
+                )
+            }
+
+            // Content & Region Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                SectionHeader("Region & Language")
+            }
+
+            item {
+                val regionLabel = when (contentRegion) {
+                    "VN" -> "Việt Nam (VN)"
+                    "US" -> "United States (US)"
+                    "JP" -> "Japan (JP)"
+                    "KR" -> "Korea (KR)"
+                    "GB" -> "United Kingdom (GB)"
+                    "FR" -> "France (FR)"
+                    "DE" -> "Germany (DE)"
+                    "IN" -> "India (IN)"
+                    else -> contentRegion
+                }
+                SettingClickableItem(
+                    icon = Icons.Default.Public,
+                    title = "Content Region",
+                    subtitle = "$regionLabel (Personalizes trending & recommendations)",
+                    onClick = { showRegionDialog = true }
+                )
+            }
+
+            item {
+                val langLabel = when (appLanguage) {
+                    "vi" -> "Tiếng Việt"
+                    "en" -> "English"
+                    else -> "Tiếng Việt"
+                }
+                SettingClickableItem(
+                    icon = Icons.Default.Language,
+                    title = "App Language",
+                    subtitle = langLabel,
+                    onClick = { showLanguageDialog = true }
                 )
             }
 
@@ -254,6 +298,46 @@ fun SettingsScreen(
                 showCacheDialog = false
             },
             onDismiss = { showCacheDialog = false }
+        )
+    }
+
+    if (showRegionDialog) {
+        val regions = listOf(
+            "VN" to "Việt Nam (VN)",
+            "US" to "United States (US)",
+            "JP" to "Japan (JP)",
+            "KR" to "Korea (KR)",
+            "GB" to "United Kingdom (GB)",
+            "FR" to "France (FR)",
+            "DE" to "Germany (DE)",
+            "IN" to "India (IN)"
+        )
+        OptionDialog(
+            title = "Choose Content Region",
+            options = regions,
+            currentValue = contentRegion,
+            onSelect = {
+                viewModel.setRegion(it)
+                showRegionDialog = false
+            },
+            onDismiss = { showRegionDialog = false }
+        )
+    }
+
+    if (showLanguageDialog) {
+        val languages = listOf(
+            "vi" to "Tiếng Việt",
+            "en" to "English"
+        )
+        OptionDialog(
+            title = "Choose App Language",
+            options = languages,
+            currentValue = appLanguage,
+            onSelect = {
+                viewModel.setAppLanguage(it)
+                showLanguageDialog = false
+            },
+            onDismiss = { showLanguageDialog = false }
         )
     }
 

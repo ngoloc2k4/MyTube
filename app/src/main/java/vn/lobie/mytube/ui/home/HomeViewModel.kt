@@ -10,20 +10,32 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import vn.lobie.mytube.data.local.db.MyTubeDatabase
+import vn.lobie.mytube.data.local.prefs.SettingsDataStore
+import vn.lobie.mytube.data.repository.CascadingYouTubeRepository
 import vn.lobie.mytube.domain.model.SearchResult
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 
 class HomeViewModel(
     private val repository: YouTubeRepository,
-    private val database: MyTubeDatabase? = null
+    private val database: MyTubeDatabase? = null,
+    private val settingsDataStore: SettingsDataStore? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        loadRecommendedVideos()
+        if (settingsDataStore != null) {
+            viewModelScope.launch {
+                settingsDataStore.contentRegion.collect { region ->
+                    (repository as? CascadingYouTubeRepository)?.setRegion(region)
+                    loadRecommendedVideos()
+                }
+            }
+        } else {
+            loadRecommendedVideos()
+        }
     }
 
     fun loadRecommendedVideos() {

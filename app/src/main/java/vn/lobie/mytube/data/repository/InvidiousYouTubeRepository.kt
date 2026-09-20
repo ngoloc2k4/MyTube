@@ -9,6 +9,10 @@ class InvidiousYouTubeRepository(
     private val api: InvidiousApiClient = InvidiousApiClient()
 ) : YouTubeRepository {
 
+    fun setRegion(region: String) {
+        api.region = region
+    }
+
     override suspend fun getTrendingVideos(): Result<List<Video>> {
         val result = api.getTrending()
         return result.mapCatching { dtos ->

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -168,12 +169,38 @@ fun SubscriptionsScreen(
                         }
                     }
                 } else {
-                    items(feedVideos, key = { it.id }) { video ->
-                        VideoCard(
-                            video = video,
-                            onClick = { onVideoClick(video) },
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
+                    val configuration = LocalConfiguration.current
+                    val isTablet = configuration.screenWidthDp >= 600
+
+                    if (isTablet) {
+                        val chunked = feedVideos.chunked(2)
+                        items(chunked) { pair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                pair.forEach { video ->
+                                    VideoCard(
+                                        video = video,
+                                        onClick = { onVideoClick(video) },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                if (pair.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    } else {
+                        items(feedVideos, key = { it.id }) { video ->
+                            VideoCard(
+                                video = video,
+                                onClick = { onVideoClick(video) },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
                     }
                 }
             }

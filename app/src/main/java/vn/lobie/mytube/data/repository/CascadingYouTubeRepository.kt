@@ -32,6 +32,15 @@ class CascadingYouTubeRepository(
         "InnerTube" to innerTubeRepository
     )
 
+    fun setRegion(region: String) {
+        (invidiousRepository as? InvidiousYouTubeRepository)?.setRegion(region)
+        (innerTubeRepository as? InnerTubeYouTubeRepository)?.setRegion(region)
+    }
+
+    fun setLanguage(language: String) {
+        (innerTubeRepository as? InnerTubeYouTubeRepository)?.setLanguage(language)
+    }
+
     override suspend fun getTrendingVideos(): Result<List<Video>> {
         for ((name, repo) in browsePipeline) {
             val result = repo.getTrendingVideos()

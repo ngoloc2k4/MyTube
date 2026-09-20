@@ -41,7 +41,13 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 250)
 
     val contentLanguage = settingsDataStore.contentLanguage
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "vi")
+
+    val contentRegion = settingsDataStore.contentRegion
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.DEFAULT_REGION)
+
+    val appLanguage = settingsDataStore.appLanguage
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.DEFAULT_APP_LANGUAGE)
 
     private val _currentCacheBytes = MutableStateFlow<Long>(0)
     val currentCacheBytes: StateFlow<Long> = _currentCacheBytes.asStateFlow()
@@ -111,6 +117,14 @@ class SettingsViewModel(
 
     fun setLanguage(lang: String) {
         viewModelScope.launch { settingsDataStore.setContentLanguage(lang) }
+    }
+
+    fun setRegion(region: String) {
+        viewModelScope.launch { settingsDataStore.setContentRegion(region) }
+    }
+
+    fun setAppLanguage(language: String) {
+        viewModelScope.launch { settingsDataStore.setAppLanguage(language) }
     }
 
     fun clearWatchHistory() {

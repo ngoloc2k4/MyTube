@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
                     val settingsDataStore = remember { SettingsDataStore(applicationContext) }
 
                     val homeViewModel: HomeViewModel = viewModel {
-                        HomeViewModel(repository, database)
+                        HomeViewModel(repository, database, settingsDataStore)
                     }
                     val playerViewModel: PlayerViewModel = viewModel {
                         PlayerViewModel(application, repository)

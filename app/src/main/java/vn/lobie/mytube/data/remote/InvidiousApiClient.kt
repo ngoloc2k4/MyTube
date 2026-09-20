@@ -32,6 +32,9 @@ class InvidiousApiClient(
 
     private var currentInstanceIndex = 0
 
+    @Volatile
+    var region: String = "VN"
+
     private fun getBaseUrl(): String {
         return instances[currentInstanceIndex % instances.size]
     }
@@ -42,7 +45,7 @@ class InvidiousApiClient(
 
     suspend fun getTrending(): Result<List<InvidiousVideoDto>> = withContext(Dispatchers.IO) {
         executeWithFallback { baseUrl ->
-            "$baseUrl/api/v1/trending?type=music,default"
+            "$baseUrl/api/v1/trending?type=music,default&region=$region"
         }
     }
 

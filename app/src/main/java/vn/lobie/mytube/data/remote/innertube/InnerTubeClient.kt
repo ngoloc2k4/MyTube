@@ -20,6 +20,12 @@ class InnerTubeClient(
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
     private val baseUrl = "https://www.youtube.com/youtubei/v1"
 
+    @Volatile
+    var region: String = "VN"
+
+    @Volatile
+    var language: String = "vi"
+
     suspend fun browse(browseId: String = "FEwhat_to_watch"): Result<JsonObject> = withContext(Dispatchers.IO) {
         val payload = buildJsonObject {
             put("context", createWebContext())
@@ -80,9 +86,9 @@ class InnerTubeClient(
             put("client", buildJsonObject {
                 put("clientName", "WEB")
                 put("clientVersion", "2.20240901.00.00")
-                put("hl", "en")
-                put("gl", "US")
-                put("utcOffsetMinutes", 0)
+                put("hl", language)
+                put("gl", region)
+                put("utcOffsetMinutes", 420)
             })
         }
     }
@@ -93,9 +99,9 @@ class InnerTubeClient(
                 put("clientName", "ANDROID_TESTSUITE")
                 put("clientVersion", "1.9")
                 put("androidSdkVersion", 34)
-                put("hl", "en")
-                put("gl", "US")
-                put("utcOffsetMinutes", 0)
+                put("hl", language)
+                put("gl", region)
+                put("utcOffsetMinutes", 420)
             })
         }
     }

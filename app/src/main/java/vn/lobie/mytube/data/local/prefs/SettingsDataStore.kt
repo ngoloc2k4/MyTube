@@ -24,6 +24,8 @@ class SettingsDataStore(private val context: Context) {
         val AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
         val CACHE_SIZE_MB = intPreferencesKey("cache_size_mb")
         val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
+        val CONTENT_REGION = stringPreferencesKey("content_region")
+        val APP_LANGUAGE = stringPreferencesKey("app_language")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -34,6 +36,9 @@ class SettingsDataStore(private val context: Context) {
         const val QUALITY_720P = "720p"
         const val QUALITY_480P = "480p"
         const val QUALITY_360P = "360p"
+
+        const val DEFAULT_REGION = "VN"
+        const val DEFAULT_APP_LANGUAGE = "vi"
     }
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
@@ -61,7 +66,15 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val contentLanguage: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[CONTENT_LANGUAGE] ?: "en"
+        preferences[CONTENT_LANGUAGE] ?: "vi"
+    }
+
+    val contentRegion: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[CONTENT_REGION] ?: DEFAULT_REGION
+    }
+
+    val appLanguage: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[APP_LANGUAGE] ?: DEFAULT_APP_LANGUAGE
     }
 
     suspend fun setThemeMode(mode: String) {
@@ -103,6 +116,18 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setContentLanguage(language: String) {
         context.dataStore.edit { preferences ->
             preferences[CONTENT_LANGUAGE] = language
+        }
+    }
+
+    suspend fun setContentRegion(region: String) {
+        context.dataStore.edit { preferences ->
+            preferences[CONTENT_REGION] = region
+        }
+    }
+
+    suspend fun setAppLanguage(language: String) {
+        context.dataStore.edit { preferences ->
+            preferences[APP_LANGUAGE] = language
         }
     }
 }

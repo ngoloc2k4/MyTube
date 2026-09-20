@@ -118,11 +118,18 @@ fun MusicScreen(
                     )
                 }
             } else {
-                LazyColumn(
+                val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+                val isTablet = configuration.screenWidthDp >= 600
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = if (isTablet) androidx.compose.foundation.lazy.grid.GridCells.Fixed(2) else androidx.compose.foundation.lazy.grid.GridCells.Fixed(1),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
+                    contentPadding = PaddingValues(
+                        bottom = bottomPadding + 16.dp,
+                        start = if (isTablet) 8.dp else 0.dp,
+                        end = if (isTablet) 8.dp else 0.dp
+                    )
                 ) {
-                    itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                    androidx.compose.foundation.lazy.grid.itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                         MusicTrackRow(
                             track = track,
                             index = index + 1,

@@ -12,6 +12,7 @@ import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.db.entity.LikedVideoEntity
 import vn.lobie.mytube.data.local.db.entity.WatchHistoryEntity
 import vn.lobie.mytube.domain.model.Channel
+import vn.lobie.mytube.data.local.db.entity.PlaylistEntity
 import vn.lobie.mytube.domain.model.Video
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
@@ -25,6 +26,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         .getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val playlists: StateFlow<List<PlaylistEntity>> = database.playlistDao()
+        .getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun clearHistory() {
         viewModelScope.launch(Dispatchers.IO) {
             database.watchHistoryDao().deleteAll()
@@ -34,6 +39,19 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun removeHistoryItem(videoId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             database.watchHistoryDao().deleteById(videoId)
+        }
+    }
+
+    fun createPlaylist(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            database.playlistDao().insert(PlaylistEntity(name = name.trim()))
+        }
+    }
+
+    fun deletePlaylist(id: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.playlistDao().deleteById(id)
         }
     }
 }
