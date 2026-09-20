@@ -40,4 +40,11 @@
     <!-- Description -->
     <string name="show_more">...thêm</string>
     <string name="show_less">Thu gọn</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Trang chủ</string>
+    <string name="nav_subscriptions">Đăng ký</string>
+    <string name="nav_music">Âm nhạc</string>
+    <string name="nav_library">Thư viện</string>
+    <string name="nav_settings">Cài đặt</string>
 </resources>

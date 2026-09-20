@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.jetbrains.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -86,6 +87,20 @@ dependencies {
 
     // NewPipeExtractor
     implementation(libs.newpipeextractor)
+
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // DataStore Preferences
+    implementation(libs.androidx.datastore.preferences)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Reorderable (drag-to-reorder for playlists)
+    implementation(libs.reorderable)
 
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)

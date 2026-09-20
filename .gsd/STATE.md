@@ -1,24 +1,24 @@
-# STATE.md — MyTube
+# MyTube v2.0 — GSD State
 
-## Completed Phases
-- [x] **Phase 0: Android & Kotlin Foundation** (Verified, arm64-v8a APK, Shared Cache ~700MB, App Icons)
-- [x] **Phase 1: Fake YouTube (Architecture & Domain Layer)** (Verified, Run ID: 35507507511 in 1m23s)
-- [x] **Phase 2: Invidious Engine (First Real Source)** (Verified, Run ID: 35507916247 in 2m48s)
-- [x] **Phase 3: Media3 Playback Engine** (Verified, Run ID: 35508358662 in 2m29s)
-- [x] **Phase 4: NewPipeExtractor Integration** (Verified, Run ID: 35509204891 in 3m27s)
-- [x] **Phase 5: Native InnerTube Engine & 4-Tier Pipeline** (Verified, Run ID: 35509537526 in 1m36s)
-- [x] **Phase 6: UI/UX Modernization & Stream Stabilization** (Verified, Run ID: 35511913654 in 1m49s)
-  - Full i18n localization (English & Tiếng Việt)
-  - Modern 28dp pill search bar with IME Search & auto-dismiss
-  - Category FilterChips row (All, Music, Gaming, News, Tech, Podcasts)
-  - FullPlayer Action Bar (Like, Share Android Intent, Save, Download) & Expandable Description
-  - Floating MiniPlayer pill (16dp rounded, 10dp elevation, 44-48dp touch targets)
-  - VideoCard 12dp rounded thumbnail & 6dp high-contrast duration badge
-  - Fixed ExoPlayer 403 Forbidden with custom User-Agent & Headers
-  - Fixed MediaSession command 5 seek permissions
-  - Automatic stream fallback mechanism
+## Current Phase
+PHASE 1: Foundation (Room DB + DataStore + Navigation) — IN VERIFICATION
 
-## Workflow & User Constraints (STRICT)
-- **APK Download:** Luôn dùng lệnh `curl` để download file APK về máy thay vì `gh run download` để tốc độ tải nhanh hơn nhiều.
-- **CI Monitoring:** Dùng `sleep 60` trước mỗi lần kiểm tra trạng thái CI GitHub Actions để tránh spam API.
-- **Build Policy:** Không build APK local trên Termux; toàn bộ artifact được kiểm chứng và đóng gói qua GitHub Actions CI.
+## Ralph Pipeline Status
+| Gate | Status | Timestamp |
+|------|--------|-----------|
+| team-plan | ✅ COMPLETE | 2026-09-20T13:48Z |
+| team-prd | ✅ APPROVED | 2026-09-20T13:49Z |
+| team-exec | 🔄 EXECUTING | 2026-09-20T14:31Z |
+| team-verify | ⏳ PENDING CI | — |
+| team-fix | ⏳ NOT STARTED | — |
+
+## Phase 1 Tasks Summary
+- [x] F-01: Add Room (2.8.4), KSP (2.3.12), DataStore (1.2.1), WorkManager (2.11.2), Reorderable (3.1.0) to `app/build.gradle.kts` and `libs.versions.toml`.
+- [x] F-02: Create all Room Entity, DAO, and Database classes (`MyTubeDatabase`, 7 entities, 7 DAOs).
+- [x] F-03: Create `SettingsDataStore` with reactive preference flows.
+- [x] F-04: Implement 5-tab Material 3 `AppBottomBar` and `AppTab` enum.
+- [x] F-05: Integrate bottom navigation and database/datastore into `MainActivity`.
+
+## Context
+- Device: 192.168.1.39:42107
+- Target App: vn.lobie.mytube

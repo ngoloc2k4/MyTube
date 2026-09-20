@@ -40,4 +40,11 @@
     <!-- Description -->
     <string name="show_more">...more</string>
     <string name="show_less">Show less</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_subscriptions">Subscriptions</string>
+    <string name="nav_music">Music</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_settings">Settings</string>
 </resources>
