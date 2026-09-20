@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import vn.lobie.mytube.domain.model.Video
-import vn.lobie.mytube.ui.util.formatDuration
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -189,7 +188,7 @@ private fun MusicTrackRow(
         Spacer(modifier = Modifier.width(8.dp))
 
         Text(
-            text = formatDuration(track.durationSeconds),
+            text = track.formattedDuration,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
