@@ -1,0 +1,114 @@
+package vn.lobie.mytube.data.remote
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import vn.lobie.mytube.data.remote.dto.InvidiousVideoDto
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+
+class InvidiousApiClient(
+    private val client: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+) {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
+
+    // Danh sách các instance Invidious public phổ biến và ổn định
+    private val instances = listOf(
+        "https://invidious.nerdvpn.de",
+        "https://inv.tux.pizza",
+        "https://invidious.private.coffee",
+        "https://yewtu.be"
+    )
+
+    private var currentInstanceIndex = 0
+
+    private fun getBaseUrl(): String {
+        return instances[currentInstanceIndex % instances.size]
+    }
+
+    private fun rotateInstance() {
+        currentInstanceIndex = (currentInstanceIndex + 1) % instances.size
+    }
+
+    suspend fun getTrending(): Result<List<InvidiousVideoDto>> = withContext(Dispatchers.IO) {
+        executeWithFallback { baseUrl ->
+            "$baseUrl/api/v1/trending?type=music,default"
+        }
+    }
+
+    suspend fun search(query: String): Result<List<InvidiousVideoDto>> = withContext(Dispatchers.IO) {
+        val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+        executeWithFallback { baseUrl ->
+            "$baseUrl/api/v1/search?q=$encoded&type=video"
+        }
+    }
+
+    suspend fun getVideo(videoId: String): Result<InvidiousVideoDto> = withContext(Dispatchers.IO) {
+        var lastError: Exception? = null
+        for (attempt in instances.indices) {
+            val baseUrl = getBaseUrl()
+            val url = "$baseUrl/api/v1/videos/$videoId"
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: throw IOException("Empty body")
+                        val dto = json.decodeFromString<InvidiousVideoDto>(body)
+                        return@withContext Result.success(dto)
+                    } else {
+                        rotateInstance()
+                        lastError = IOException("HTTP ${response.code} from $baseUrl")
+                    }
+                }
+            } catch (e: Exception) {
+                rotateInstance()
+                lastError = e
+            }
+        }
+        Result.failure(lastError ?: IOException("All Invidious instances failed"))
+    }
+
+    private inline fun <reified T> executeWithFallback(
+        urlBuilder: (String) -> String
+    ): Result<T> {
+        var lastError: Exception? = null
+        for (attempt in instances.indices) {
+            val baseUrl = getBaseUrl()
+            val url = urlBuilder(baseUrl)
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: throw IOException("Empty body")
+                        val result = json.decodeFromString<T>(body)
+                        return Result.success(result)
+                    } else {
+                        rotateInstance()
+                        lastError = IOException("HTTP ${response.code} from $baseUrl")
+                    }
+                }
+            } catch (e: Exception) {
+                rotateInstance()
+                lastError = e
+            }
+        }
+        return Result.failure(lastError ?: IOException("All Invidious instances failed"))
+    }
+}

@@ -69,6 +69,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
+    // Networking & Serialization
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
+
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
 }

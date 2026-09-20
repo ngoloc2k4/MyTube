@@ -10,7 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import vn.lobie.mytube.data.repository.FakeYouTubeRepository
+import vn.lobie.mytube.data.repository.InvidiousYouTubeRepository
 import vn.lobie.mytube.ui.home.HomeScreen
 import vn.lobie.mytube.ui.home.HomeViewModel
 import vn.lobie.mytube.ui.theme.MyTubeTheme
@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val repository = remember { FakeYouTubeRepository() }
+                    val repository = remember { InvidiousYouTubeRepository() }
                     val viewModel: HomeViewModel = viewModel {
                         HomeViewModel(repository)
                     }
