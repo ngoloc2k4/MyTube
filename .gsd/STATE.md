@@ -8,7 +8,14 @@
   - Presentation: `HomeUiState` (Loading, Success, Error) + `HomeViewModel` (StateFlow, Coroutines)
   - Compose UI: `VideoCard` (16:9 thumbnail, duration badge, channel avatar) + `HomeScreen` (SearchBar, LazyColumn feed)
   - Image Loading: Coil3 Compose integration
+- [x] **Phase 2: Invidious Engine (First Real Source)** (Verified, Run ID: 35507916247 in 2m48s)
+  - OkHttp + Kotlinx Serialization
+  - Multi-instance rotation for Invidious API
+  - Seamless fallback to `FakeYouTubeRepository`
+- [ ] **Phase 3: Media3 Playback Engine** (In verification)
+  - `PlaybackService` (`MediaSessionService`) background playback & media notification
+  - `PlayerViewModel` + `PlayerUiState` with `MediaController`
+  - `MiniPlayer` (bottom bar, progress line, play/pause, dismiss)
+  - `FullPlayer` (`PlayerView` surface, seekbar, gestures, 10s skip, back-collapse)
 
-## Next Phase: Phase 2 (Invidious Engine — First Real Source)
-- Connect real YouTube search, video metadata, and stream URLs via Invidious API
-- Source Selector & Repository integration
+## Next Phase: Phase 4 (NewPipeExtractor Integration)

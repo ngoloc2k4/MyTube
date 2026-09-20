@@ -13,14 +13,14 @@
 - [x] Kiểm chứng luồng MVI / Clean Architecture hoạt động hoàn chỉnh
 
 ## Phase 2: Invidious Engine (First Real Source)
-- [ ] Network layer: Retrofit / Ktor / OkHttp
-- [ ] Invidious API Client (Search, Video metadata, Stream URLs)
-- [ ] Source Selector & Repository integration
+- [x] Network layer: OkHttp + Kotlinx Serialization
+- [x] Invidious API Client (Search, Video metadata, Stream URLs, instance rotator)
+- [x] Source Selector & Repository integration (Invidious with Fake fallback)
 
 ## Phase 3: Media3 Playback Engine
-- [ ] Media3 ExoPlayer integration
-- [ ] MediaSessionService cho Background Playback
-- [ ] Mini Player & Full Player controls
+- [x] Media3 ExoPlayer integration (Core, UI, HLS, DASH, Session)
+- [x] MediaSessionService (`PlaybackService`) cho Background Playback & Notification
+- [x] Mini Player & Full Player controls với Material 3 & gesture expand/collapse
 
 ## Phase 4: NewPipeExtractor Integration
 - [ ] Tích hợp NewPipeExtractor library

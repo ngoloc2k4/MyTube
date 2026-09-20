@@ -21,6 +21,7 @@ import vn.lobie.mytube.ui.components.VideoCard
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     onVideoClick: (Video) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -134,7 +135,7 @@ fun HomeScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 8.dp)
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp + bottomPadding)
                         ) {
                             items(
                                 items = displayVideos,
