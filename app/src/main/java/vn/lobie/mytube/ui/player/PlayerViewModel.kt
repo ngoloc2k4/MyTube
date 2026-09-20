@@ -82,6 +82,30 @@ class PlayerViewModel(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            android.util.Log.e("PlayerViewModel", "Playback error encountered: ${error.errorCodeName} (${error.errorCode})", error)
+            val currentVid = _uiState.value.currentVideo
+            if (currentVid != null && (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+                        error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)) {
+                android.util.Log.w("PlayerViewModel", "Attempting fallback stream for video ${currentVid.id}")
+                val fallbackItem = MediaItem.Builder()
+                    .setUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
+                    .setMediaId(currentVid.id)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(currentVid.title)
+                            .setArtist(currentVid.channel.name)
+                            .setArtworkUri(Uri.parse(currentVid.thumbnailUrl))
+                            .build()
+                    )
+                    .build()
+                player?.let { p ->
+                    p.setMediaItem(fallbackItem)
+                    p.prepare()
+                    p.play()
+                    return
+                }
+            }
+
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -149,6 +173,8 @@ class PlayerViewModel(
                 ?: streamInfo?.hlsUrl
                 ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotEmpty() }?.url
                 ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+
+            android.util.Log.d("PlayerViewModel", "Resolved stream for ${video.id} -> $playableUrl")
 
             val mediaItem = MediaItem.Builder()
                 .setUri(playableUrl)
