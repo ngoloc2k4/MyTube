@@ -24,10 +24,31 @@ class HomeViewModel(
             _uiState.value = HomeUiState.Loading
             repository.getTrendingVideos()
                 .onSuccess { videos ->
-                    _uiState.value = HomeUiState.Success(videos = videos)
+                    _uiState.value = HomeUiState.Success(videos = videos, selectedCategory = VideoCategory.ALL)
                 }
                 .onFailure { error ->
                     _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Failed to load videos")
+                }
+        }
+    }
+
+    fun selectCategory(category: VideoCategory) {
+        if (category == VideoCategory.ALL) {
+            loadTrendingVideos()
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = HomeUiState.Loading
+            repository.search(category.searchQuery ?: "")
+                .onSuccess { results ->
+                    _uiState.value = HomeUiState.Success(
+                        videos = emptyList(),
+                        searchResults = results,
+                        selectedCategory = category
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Failed to load category")
                 }
         }
     }

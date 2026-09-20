@@ -1,8 +1,15 @@
 package vn.lobie.mytube.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -11,9 +18,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import vn.lobie.mytube.R
 import vn.lobie.mytube.domain.model.SearchResult
 import vn.lobie.mytube.domain.model.Video
@@ -28,6 +39,8 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var currentQuery by remember { mutableStateOf("") }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     Scaffold(
         topBar = {
@@ -52,7 +65,7 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Search Input Field
+            // Modern 28dp Pill Search Input Field
             OutlinedTextField(
                 value = currentQuery,
                 onValueChange = {
@@ -60,30 +73,70 @@ fun HomeScreen(
                     viewModel.onSearchQueryChanged(it)
                     if (it.isBlank()) {
                         viewModel.clearSearch()
-                    } else {
-                        viewModel.performSearch(it)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = {
                     Icon(imageVector = Icons.Default.Search, contentDescription = stringResource(R.string.search_action))
                 },
                 trailingIcon = {
-                    if (currentQuery.isNotEmpty()) {
+                    AnimatedVisibility(
+                        visible = currentQuery.isNotEmpty(),
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
                         IconButton(onClick = {
                             currentQuery = ""
                             viewModel.clearSearch()
+                            focusManager.clearFocus()
                         }) {
                             Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.clear_action))
                         }
                     }
                 },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search,
+                    keyboardType = KeyboardType.Text
+                ),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        if (currentQuery.isNotBlank()) {
+                            viewModel.performSearch(currentQuery)
+                        }
+                    }
+                ),
                 singleLine = true,
-                shape = MaterialTheme.shapes.medium
+                shape = RoundedCornerShape(28.dp)
             )
+
+            // Category Filter Chips Row
+            val selectedCat = (uiState as? HomeUiState.Success)?.selectedCategory ?: VideoCategory.ALL
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(VideoCategory.entries.toTypedArray()) { category ->
+                    FilterChip(
+                        selected = category == selectedCat,
+                        onClick = {
+                            currentQuery = ""
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            viewModel.selectCategory(category)
+                        },
+                        label = { Text(stringResource(category.titleRes)) },
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                }
+            }
 
             // Content Area based on State
             when (val state = uiState) {

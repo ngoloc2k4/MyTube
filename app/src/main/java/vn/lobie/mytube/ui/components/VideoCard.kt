@@ -37,8 +37,10 @@ fun VideoCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 8.dp)
                 .aspectRatio(16f / 9f)
-                .background(Color.DarkGray)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
         ) {
             AsyncImage(
                 model = video.thumbnailUrl,
@@ -47,12 +49,12 @@ fun VideoCard(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Duration Badge
+            // High contrast duration pill badge
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.8f), shape = RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.85f), shape = RoundedCornerShape(6.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
@@ -68,7 +70,7 @@ fun VideoCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Channel Avatar
@@ -79,7 +81,7 @@ fun VideoCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Color.Gray)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
 
             // Title & Metadata

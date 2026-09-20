@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                     val playerUiState by playerViewModel.uiState.collectAsState()
 
                     Box(modifier = Modifier.fillMaxSize()) {
-                        val miniPlayerHeight = if (playerUiState.currentVideo != null && !playerUiState.isExpanded) 68.dp else 0.dp
+                        val miniPlayerHeight = if (playerUiState.currentVideo != null && !playerUiState.isExpanded) 84.dp else 0.dp
 
                         HomeScreen(
                             viewModel = homeViewModel,
@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .navigationBarsPadding()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
                             )
                         }
 

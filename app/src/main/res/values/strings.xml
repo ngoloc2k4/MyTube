@@ -3,6 +3,7 @@
     <string name="search_placeholder">Search YouTube videos…</string>
     <string name="search_action">Search</string>
     <string name="clear_action">Clear</string>
+    <string name="clear_search">Clear search query</string>
     <string name="no_videos_found">No videos found</string>
     <string name="retry_button">Retry</string>
     <string name="subscribe_button">Subscribe</string>
@@ -18,4 +19,25 @@
     <string name="rewind_10s">Rewind 10s</string>
     <string name="forward_10s">Forward 10s</string>
     <string name="playback_error">Playback error</string>
+
+    <!-- Categories -->
+    <string name="category_all">All</string>
+    <string name="category_music">Music</string>
+    <string name="category_gaming">Gaming</string>
+    <string name="category_news">News</string>
+    <string name="category_tech">Tech</string>
+    <string name="category_podcasts">Podcasts</string>
+
+    <!-- Action Bar -->
+    <string name="action_like">Like</string>
+    <string name="action_liked">Liked</string>
+    <string name="action_share">Share</string>
+    <string name="action_save">Save</string>
+    <string name="action_saved">Saved</string>
+    <string name="action_download">Download</string>
+    <string name="share_video_title">Share video</string>
+
+    <!-- Description -->
+    <string name="show_more">...more</string>
+    <string name="show_less">Show less</string>
 </resources>

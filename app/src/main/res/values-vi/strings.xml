@@ -3,6 +3,7 @@
     <string name="search_placeholder">Tìm kiếm video trên YouTube…</string>
     <string name="search_action">Tìm kiếm</string>
     <string name="clear_action">Xóa</string>
+    <string name="clear_search">Xóa nội dung tìm kiếm</string>
     <string name="no_videos_found">Không tìm thấy video nào</string>
     <string name="retry_button">Thử lại</string>
     <string name="subscribe_button">Đăng ký</string>
@@ -18,4 +19,25 @@
     <string name="rewind_10s">Tua lại 10 giây</string>
     <string name="forward_10s">Tua đi 10 giây</string>
     <string name="playback_error">Lỗi phát video</string>
+
+    <!-- Categories -->
+    <string name="category_all">Tất cả</string>
+    <string name="category_music">Âm nhạc</string>
+    <string name="category_gaming">Trò chơi</string>
+    <string name="category_news">Tin tức</string>
+    <string name="category_tech">Công nghệ</string>
+    <string name="category_podcasts">Podcast</string>
+
+    <!-- Action Bar -->
+    <string name="action_like">Thích</string>
+    <string name="action_liked">Đã thích</string>
+    <string name="action_share">Chia sẻ</string>
+    <string name="action_save">Lưu</string>
+    <string name="action_saved">Đã lưu</string>
+    <string name="action_download">Tải xuống</string>
+    <string name="share_video_title">Chia sẻ video</string>
+
+    <!-- Description -->
+    <string name="show_more">...thêm</string>
+    <string name="show_less">Thu gọn</string>
 </resources>

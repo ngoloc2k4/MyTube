@@ -34,26 +34,17 @@ fun MiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .height(68.dp)
+            .clip(RoundedCornerShape(16.dp))
             .clickable { onExpand() },
+        shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 6.dp,
-        shadowElevation = 8.dp
+        shadowElevation = 10.dp
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Progress Bar at the top of MiniPlayer
-            LinearProgressIndicator(
-                progress = { uiState.progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-
+        Box(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                    .fillMaxSize()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -62,8 +53,8 @@ fun MiniPlayer(
                     model = video.thumbnailUrl,
                     contentDescription = video.title,
                     modifier = Modifier
-                        .size(width = 64.dp, height = 42.dp)
-                        .clip(RoundedCornerShape(4.dp)),
+                        .size(width = 64.dp, height = 44.dp)
+                        .clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop
                 )
 
@@ -99,7 +90,10 @@ fun MiniPlayer(
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else {
-                    IconButton(onClick = onTogglePlayPause) {
+                    IconButton(
+                        onClick = onTogglePlayPause,
+                        modifier = Modifier.size(44.dp)
+                    ) {
                         Icon(
                             imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = stringResource(if (uiState.isPlaying) R.string.pause_action else R.string.play_action),
@@ -109,7 +103,10 @@ fun MiniPlayer(
                 }
 
                 // Close button
-                IconButton(onClick = onClose) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(44.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.close_player),
@@ -117,6 +114,17 @@ fun MiniPlayer(
                     )
                 }
             }
+
+            // High contrast progress bar at bottom of pill
+            LinearProgressIndicator(
+                progress = { uiState.progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .align(Alignment.BottomCenter),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         }
     }
 }
