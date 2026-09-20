@@ -40,8 +40,7 @@ fun MusicScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
 
     Scaffold(
         topBar = {

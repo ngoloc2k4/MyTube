@@ -43,8 +43,7 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
 
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
 
     if (showCreatePlaylistDialog) {
         AlertDialog(

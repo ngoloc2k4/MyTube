@@ -75,7 +75,18 @@ class MainActivity : ComponentActivity() {
                     val playerUiState by playerViewModel.uiState.collectAsState()
                     var currentTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    val uiMode by settingsDataStore.uiMode.collectAsState(initial = SettingsDataStore.UI_MODE_AUTO)
+                    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+                    val isTablet = when (uiMode) {
+                        SettingsDataStore.UI_MODE_PHONE -> false
+                        SettingsDataStore.UI_MODE_TABLET -> true
+                        else -> configuration.screenWidthDp >= 600
+                    }
+
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        vn.lobie.mytube.ui.theme.LocalIsTablet provides isTablet
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                         val bottomBarHeight = 80.dp
                         val miniPlayerHeight = if (playerUiState.currentVideo != null && !playerUiState.isExpanded) 80.dp else 0.dp
                         val contentBottomPadding = bottomBarHeight + miniPlayerHeight
@@ -177,4 +188,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }

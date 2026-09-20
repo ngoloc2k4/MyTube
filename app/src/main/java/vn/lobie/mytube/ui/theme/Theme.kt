@@ -11,6 +11,8 @@ val RedPrimary = Color(0xFFFF0000)
 val DarkBackground = Color(0xFF0F0F0F)
 val DarkSurface = Color(0xFF1E1E1E)
 
+val LocalIsTablet = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 private val DarkColorScheme = darkColorScheme(
     primary = RedPrimary,
     background = DarkBackground,

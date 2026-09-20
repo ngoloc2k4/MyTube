@@ -49,6 +49,9 @@ class SettingsViewModel(
     val appLanguage = settingsDataStore.appLanguage
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.DEFAULT_APP_LANGUAGE)
 
+    val uiMode = settingsDataStore.uiMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.UI_MODE_AUTO)
+
     private val _currentCacheBytes = MutableStateFlow<Long>(0)
     val currentCacheBytes: StateFlow<Long> = _currentCacheBytes.asStateFlow()
 
@@ -125,6 +128,10 @@ class SettingsViewModel(
 
     fun setAppLanguage(language: String) {
         viewModelScope.launch { settingsDataStore.setAppLanguage(language) }
+    }
+
+    fun setUiMode(mode: String) {
+        viewModelScope.launch { settingsDataStore.setUiMode(mode) }
     }
 
     fun clearWatchHistory() {

@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import vn.lobie.mytube.ui.components.CompactVideoCard
+import coil3.compose.AsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -82,7 +83,9 @@ fun FullPlayer(
     var showSpeedDialog by remember { mutableStateOf(false) }
     var isQueueExpanded by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val useDualPane = isTablet && isLandscape
 
     // Manage screen orientation for fullscreen mode
     DisposableEffect(uiState.isFullscreen) {
@@ -131,7 +134,7 @@ fun FullPlayer(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-        } else if (isTablet) {
+        } else if (useDualPane) {
             // Tablet Dual-Pane Landscape/Wide screen layout
             Row(
                 modifier = Modifier
@@ -470,7 +473,12 @@ fun FullPlayer(
                     .fillMaxSize()
                     .statusBarsPadding()
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = if (isTablet) 800.dp else androidx.compose.ui.unit.Dp.Unspecified)
+                ) {
                     // Top Header Bar
                     Row(
                         modifier = Modifier
@@ -805,6 +813,7 @@ fun FullPlayer(
                         onSelectVideo = onSelectVideo,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .widthIn(max = if (isTablet) 800.dp else androidx.compose.ui.unit.Dp.Unspecified)
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
@@ -962,19 +971,90 @@ private fun VideoPlayerSurface(
             },
         contentAlignment = Alignment.Center
     ) {
-        // ExoPlayer View
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    this.player = player
-                    useController = false
+        if (uiState.isAudioOnly) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(Color(0xFF23202A), Color(0xFF0F0E13))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(110.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = uiState.currentVideo?.thumbnailUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.35f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Headphones,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Chế độ chỉ âm thanh (Tiết kiệm pin)",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
-            },
-            update = { view ->
-                view.player = player
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
+        } else {
+            // ExoPlayer View
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        this.player = player
+                        useController = false
+                    }
+                },
+                update = { view ->
+                    view.player = player
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // Seek Feedback Indicator (+10s / -10s)
         if (seekFeedbackText != null) {

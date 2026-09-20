@@ -26,6 +26,7 @@ class SettingsDataStore(private val context: Context) {
         val CONTENT_LANGUAGE = stringPreferencesKey("content_language")
         val CONTENT_REGION = stringPreferencesKey("content_region")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
+        val UI_MODE = stringPreferencesKey("ui_mode")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -39,6 +40,10 @@ class SettingsDataStore(private val context: Context) {
 
         const val DEFAULT_REGION = "VN"
         const val DEFAULT_APP_LANGUAGE = "vi"
+
+        const val UI_MODE_AUTO = "auto"
+        const val UI_MODE_PHONE = "phone"
+        const val UI_MODE_TABLET = "tablet"
     }
 
     val themeMode: Flow<String> = context.dataStore.data.map { preferences ->
@@ -125,9 +130,19 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
+    val uiMode: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[UI_MODE] ?: UI_MODE_AUTO
+    }
+
     suspend fun setAppLanguage(language: String) {
         context.dataStore.edit { preferences ->
             preferences[APP_LANGUAGE] = language
+        }
+    }
+
+    suspend fun setUiMode(mode: String) {
+        context.dataStore.edit { preferences ->
+            preferences[UI_MODE] = mode
         }
     }
 }

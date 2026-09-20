@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -103,10 +104,21 @@ class PlayerViewModel(
             val currentVid = _uiState.value.currentVideo
             val currentUri = player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
+            // If audio-only mode was active and failed, retry with main video stream
+            if (_uiState.value.isAudioOnly && currentVid != null) {
+                val fallbackMainUrl = currentStreamInfo?.hlsUrl ?: currentStreamInfo?.videoStreams?.firstOrNull()?.url
+                if (fallbackMainUrl != null && fallbackMainUrl != currentUri) {
+                    android.util.Log.w("PlayerViewModel", "Audio stream failed, retrying with main stream in audio-only mode")
+                    setPlayerMedia(fallbackMainUrl, currentVid, player?.currentPosition ?: 0L)
+                    return
+                }
+            }
+
             // Only attempt fallback if we haven't already failed playing the fallback stream itself
             if (currentVid != null && currentUri != FALLBACK_SAMPLE_STREAM &&
                 (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
-                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)) {
+                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                 error.errorCode == PlaybackException.ERROR_CODE_PARSER_CONTAINER_UNSUPPORTED)) {
                 android.util.Log.w("PlayerViewModel", "Attempting fallback test stream for video ${currentVid.id}")
                 val fallbackItem = MediaItem.Builder()
                     .setUri(FALLBACK_SAMPLE_STREAM)
@@ -283,17 +295,10 @@ class PlayerViewModel(
                 )
             }
 
-            val playableUrl = if (_uiState.value.isAudioOnly) {
-                streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                    ?: streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
-                    ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                    ?: FALLBACK_SAMPLE_STREAM
-            } else {
-                streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
-                    ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                    ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                    ?: FALLBACK_SAMPLE_STREAM
-            }
+            val playableUrl = streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
+                ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                ?: FALLBACK_SAMPLE_STREAM
 
             setPlayerMedia(playableUrl, video, 0L)
         }
@@ -315,6 +320,9 @@ class PlayerViewModel(
         val p = player
         if (p != null) {
             p.setMediaItem(mediaItem)
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, _uiState.value.isAudioOnly)
+                .build()
             p.prepare()
             if (startPositionMs > 0L) {
                 p.seekTo(startPositionMs)
@@ -346,21 +354,14 @@ class PlayerViewModel(
     }
 
     fun toggleAudioOnly() {
-        val info = currentStreamInfo ?: return
-        val video = _uiState.value.currentVideo ?: return
-        val currentPos = player?.currentPosition ?: 0L
         val newAudioOnly = !_uiState.value.isAudioOnly
-
-        val url = if (newAudioOnly) {
-            info.audioStreams.firstOrNull { it.url.isNotBlank() }?.url
-                ?: info.videoStreams.firstOrNull { it.url.isNotBlank() }?.url
-        } else {
-            info.hlsUrl?.takeIf { it.isNotBlank() }
-                ?: info.videoStreams.firstOrNull { it.url.isNotBlank() }?.url
-        } ?: return
-
         _uiState.update { it.copy(isAudioOnly = newAudioOnly) }
-        setPlayerMedia(url, video, currentPos)
+
+        player?.let { p ->
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, newAudioOnly)
+                .build()
+        }
     }
 
     fun setPlaybackSpeed(speed: Float) {

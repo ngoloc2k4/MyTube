@@ -32,6 +32,7 @@ fun SettingsScreen(
     val cacheBytes by viewModel.currentCacheBytes.collectAsState()
     val contentRegion by viewModel.contentRegion.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
+    val uiMode by viewModel.uiMode.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -40,6 +41,7 @@ fun SettingsScreen(
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showRegionDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showUiModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -191,6 +193,20 @@ fun SettingsScreen(
                 )
             }
 
+            item {
+                val uiModeLabel = when (uiMode) {
+                    SettingsDataStore.UI_MODE_PHONE -> "Điện thoại (Phone layout)"
+                    SettingsDataStore.UI_MODE_TABLET -> "Máy tính bảng (Tablet layout)"
+                    else -> "Tự động (Theo thiết bị)"
+                }
+                SettingClickableItem(
+                    icon = Icons.Default.Devices,
+                    title = "Chế độ giao diện",
+                    subtitle = "$uiModeLabel (Tối ưu bố cục 1 cột hoặc 2 cột)",
+                    onClick = { showUiModeDialog = true }
+                )
+            }
+
             // Data & Privacy Section
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -338,6 +354,24 @@ fun SettingsScreen(
                 showLanguageDialog = false
             },
             onDismiss = { showLanguageDialog = false }
+        )
+    }
+
+    if (showUiModeDialog) {
+        val uiModes = listOf(
+            SettingsDataStore.UI_MODE_AUTO to "Tự động (Theo thiết bị)",
+            SettingsDataStore.UI_MODE_PHONE to "Điện thoại (Phone layout - 1 cột)",
+            SettingsDataStore.UI_MODE_TABLET to "Máy tính bảng (Tablet layout - 2 cột)"
+        )
+        OptionDialog(
+            title = "Chế độ giao diện",
+            options = uiModes,
+            currentValue = uiMode,
+            onSelect = {
+                viewModel.setUiMode(it)
+                showUiModeDialog = false
+            },
+            onDismiss = { showUiModeDialog = false }
         )
     }
 

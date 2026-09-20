@@ -223,8 +223,7 @@ fun HomeScreen(
                             Text(stringResource(R.string.no_videos_found), style = MaterialTheme.typography.bodyLarge)
                         }
                     } else {
-                        val configuration = LocalConfiguration.current
-                        val isTablet = configuration.screenWidthDp >= 600
+                        val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
 
                         LazyVerticalGrid(
                             columns = if (isTablet) GridCells.Adaptive(minSize = 340.dp) else GridCells.Fixed(1),
