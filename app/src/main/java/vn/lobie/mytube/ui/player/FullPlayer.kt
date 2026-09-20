@@ -2,7 +2,9 @@ package vn.lobie.mytube.ui.player
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,96 +80,18 @@ fun FullPlayer(
                 )
             }
 
-            // Video Player Surface with Controls Overlay
-            Box(
+            // Video Player Surface
+            VideoPlayerSurface(
+                player = player,
+                uiState = uiState,
+                controlsVisible = controlsVisible,
+                onToggleControls = { controlsVisible = !controlsVisible },
+                onTogglePlayPause = onTogglePlayPause,
+                onSeekBy = onSeekBy,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
-                    .background(Color.Black)
-                    .clickable { controlsVisible = !controlsVisible },
-                contentAlignment = Alignment.Center
-            ) {
-                // ExoPlayer View
-                AndroidView(
-                    factory = { ctx ->
-                        PlayerView(ctx).apply {
-                            this.player = player
-                            useController = false
-                        }
-                    },
-                    update = { view ->
-                        view.player = player
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Controls Overlay
-                AnimatedVisibility(
-                    visible = controlsVisible || uiState.isLoading,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.5f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                IconButton(
-                                    onClick = { onSeekBy(-10_000L) },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Replay10,
-                                        contentDescription = "Rewind 10s",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(28.dp))
-
-                                IconButton(
-                                    onClick = onTogglePlayPause,
-                                    modifier = Modifier.size(64.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = if (uiState.isPlaying) "Pause" else "Play",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(28.dp))
-
-                                IconButton(
-                                    onClick = { onSeekBy(10_000L) },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Forward10,
-                                        contentDescription = "Forward 10s",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            )
 
             // Seek Bar & Time Indicators
             Column(
@@ -283,6 +207,106 @@ fun FullPlayer(
                             modifier = Modifier.padding(12.dp),
                             color = MaterialTheme.colorScheme.onSurface
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(UnstableApi::class)
+@Composable
+private fun VideoPlayerSurface(
+    player: Player?,
+    uiState: PlayerUiState,
+    controlsVisible: Boolean,
+    onToggleControls: () -> Unit,
+    onTogglePlayPause: () -> Unit,
+    onSeekBy: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .background(Color.Black)
+            .clickable { onToggleControls() },
+        contentAlignment = Alignment.Center
+    ) {
+        // ExoPlayer View
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    this.player = player
+                    useController = false
+                }
+            },
+            update = { view ->
+                view.player = player
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Controls Overlay
+        AnimatedVisibility(
+            visible = controlsVisible || uiState.isLoading,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(48.dp)
+                    )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        IconButton(
+                            onClick = { onSeekBy(-10_000L) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Replay10,
+                                contentDescription = "Rewind 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(28.dp))
+
+                        IconButton(
+                            onClick = onTogglePlayPause,
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+                                tint = Color.White,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(28.dp))
+
+                        IconButton(
+                            onClick = { onSeekBy(10_000L) },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Forward10,
+                                contentDescription = "Forward 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
                     }
                 }
             }
