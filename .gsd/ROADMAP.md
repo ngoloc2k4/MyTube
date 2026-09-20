@@ -1,17 +1,19 @@
 # ROADMAP.md — MyTube
 
 ## Phase 0: Android & Kotlin Foundation
-- [ ] Thiết lập Gradle build (Kotlin, Compose BOM, Material 3, AndroidX lifecycle)
-- [ ] Kiến trúc cơ bản: Activity -> NavHost -> Compose Screen
-- [ ] Quản lý State: ViewModel + StateFlow cơ bản
+- [x] Thiết lập Gradle build (Kotlin, Compose BOM, Material 3, AndroidX lifecycle)
+- [x] Kiến trúc cơ bản: Activity -> NavHost -> Compose Screen
+- [x] Quản lý State: ViewModel + StateFlow cơ bản
+- [x] CI/CD GitHub Actions: Build file arm64-v8a APK độc lập với Unified Shared Cache
 
 ## Phase 1: Fake YouTube (Architecture Validation)
-- [ ] Domain Models: `Video`, `SearchResult`, `Channel`
-- [ ] `YouTubeRepository` interface & Fake Repository
-- [ ] UI Screens: Home, Search, Video Detail với dữ liệu mẫu
+- [x] Domain Models: `Video`, `SearchResult`, `Channel`, `StreamInfo`
+- [x] `YouTubeRepository` interface & `FakeYouTubeRepository`
+- [x] UI Screens: `HomeScreen` với SearchBar, Video Feed (LazyColumn), `VideoCard` component với duration badge & channel avatar
+- [x] Kiểm chứng luồng MVI / Clean Architecture hoạt động hoàn chỉnh
 
 ## Phase 2: Invidious Engine (First Real Source)
-- [ ] Network layer: Retrofit / Ktor + OkHttp
+- [ ] Network layer: Retrofit / Ktor / OkHttp
 - [ ] Invidious API Client (Search, Video metadata, Stream URLs)
 - [ ] Source Selector & Repository integration
 

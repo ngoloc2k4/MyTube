@@ -1,9 +1,14 @@
 # STATE.md — MyTube
 
-## Current Phase: Phase 0 (Android & Kotlin Foundation) — VERIFIED & COMPLETED
-- Repository: [https://github.com/ngoloc2k4/MyTube](https://github.com/ngoloc2k4/MyTube)
-- Package name: `vn.lobie.mytube`
-- Target OS: Android 7.0+ (minSdk 24, compileSdk 37, targetSdk 35)
-- Architecture output: File `MyTube-arm64-v8a.apk` (13MB, standalone APK)
-- CI/CD & Cache: GitHub Actions workflow verified thành công (Run ID: 35506910819), bộ nhớ cache đồng bộ (~700MB) đã được lưu thành công.
-- Next Step: Ready for **Phase 1 — Fake YouTube (Domain Models, Repository & UI Flow)**
+## Completed Phases
+- [x] **Phase 0: Android & Kotlin Foundation** (Verified, arm64-v8a APK, Shared Cache ~700MB, App Icons)
+- [x] **Phase 1: Fake YouTube (Architecture & Domain Layer)** (Verified, Run ID: 35507507511 in 1m23s)
+  - Domain models: `Video`, `Channel`, `SearchResult`, `StreamInfo`
+  - Repository contract: `YouTubeRepository` + `FakeYouTubeRepository`
+  - Presentation: `HomeUiState` (Loading, Success, Error) + `HomeViewModel` (StateFlow, Coroutines)
+  - Compose UI: `VideoCard` (16:9 thumbnail, duration badge, channel avatar) + `HomeScreen` (SearchBar, LazyColumn feed)
+  - Image Loading: Coil3 Compose integration
+
+## Next Phase: Phase 2 (Invidious Engine — First Real Source)
+- Connect real YouTube search, video metadata, and stream URLs via Invidious API
+- Source Selector & Repository integration
