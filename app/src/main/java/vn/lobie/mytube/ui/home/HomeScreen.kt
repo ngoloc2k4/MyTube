@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import vn.lobie.mytube.R
 import vn.lobie.mytube.domain.model.SearchResult
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.ui.components.VideoCard
@@ -32,7 +34,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "MyTube",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.Red
@@ -65,9 +67,9 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search YouTube videos...") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = "Search")
+                    Icon(imageVector = Icons.Default.Search, contentDescription = stringResource(R.string.search_action))
                 },
                 trailingIcon = {
                     if (currentQuery.isNotEmpty()) {
@@ -75,7 +77,7 @@ fun HomeScreen(
                             currentQuery = ""
                             viewModel.clearSearch()
                         }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Clear")
+                            Icon(imageVector = Icons.Default.Close, contentDescription = stringResource(R.string.clear_action))
                         }
                     }
                 },
@@ -109,7 +111,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Button(onClick = { viewModel.loadTrendingVideos() }) {
-                                Text("Retry")
+                                Text(stringResource(R.string.retry_button))
                             }
                         }
                     }
@@ -129,7 +131,7 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No videos found", style = MaterialTheme.typography.bodyLarge)
+                            Text(stringResource(R.string.no_videos_found), style = MaterialTheme.typography.bodyLarge)
                         }
                     } else {
                         LazyColumn(

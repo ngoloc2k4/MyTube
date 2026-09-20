@@ -13,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import vn.lobie.mytube.R
 
 @Composable
 fun MiniPlayer(
@@ -100,7 +102,7 @@ fun MiniPlayer(
                     IconButton(onClick = onTogglePlayPause) {
                         Icon(
                             imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+                            contentDescription = stringResource(if (uiState.isPlaying) R.string.pause_action else R.string.play_action),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -110,7 +112,7 @@ fun MiniPlayer(
                 IconButton(onClick = onClose) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close player",
+                        contentDescription = stringResource(R.string.close_player),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

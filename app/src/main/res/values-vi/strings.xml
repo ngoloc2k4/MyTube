@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">MyTube</string>
+    <string name="search_placeholder">Tìm kiếm video trên YouTube…</string>
+    <string name="search_action">Tìm kiếm</string>
+    <string name="clear_action">Xóa</string>
+    <string name="no_videos_found">Không tìm thấy video nào</string>
+    <string name="retry_button">Thử lại</string>
+    <string name="subscribe_button">Đăng ký</string>
+    <string name="subscribed_button">Đã đăng ký</string>
+    <string name="views_suffix">lượt xem</string>
+    <string name="views_format">%1$s lượt xem</string>
+    <string name="views_millions">%.1f Tr</string>
+    <string name="views_thousands">%.1f N</string>
+    <string name="minimize_player">Thu nhỏ trình phát</string>
+    <string name="close_player">Đóng trình phát</string>
+    <string name="play_action">Phát</string>
+    <string name="pause_action">Tạm dừng</string>
+    <string name="rewind_10s">Tua lại 10 giây</string>
+    <string name="forward_10s">Tua đi 10 giây</string>
+    <string name="playback_error">Lỗi phát video</string>
+</resources>

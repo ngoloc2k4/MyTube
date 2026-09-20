@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">MyTube</string>
+    <string name="search_placeholder">Search YouTube videos…</string>
+    <string name="search_action">Search</string>
+    <string name="clear_action">Clear</string>
+    <string name="no_videos_found">No videos found</string>
+    <string name="retry_button">Retry</string>
+    <string name="subscribe_button">Subscribe</string>
+    <string name="subscribed_button">Subscribed</string>
+    <string name="views_suffix">views</string>
+    <string name="views_format">%1$s views</string>
+    <string name="views_millions">%.1fM</string>
+    <string name="views_thousands">%.1fK</string>
+    <string name="minimize_player">Minimize player</string>
+    <string name="close_player">Close player</string>
+    <string name="play_action">Play</string>
+    <string name="pause_action">Pause</string>
+    <string name="rewind_10s">Rewind 10s</string>
+    <string name="forward_10s">Forward 10s</string>
+    <string name="playback_error">Playback error</string>
 </resources>

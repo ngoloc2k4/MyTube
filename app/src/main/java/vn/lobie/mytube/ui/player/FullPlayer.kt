@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,6 +28,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import vn.lobie.mytube.R
+import vn.lobie.mytube.ui.util.formatViews
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -66,7 +69,7 @@ fun FullPlayer(
                 IconButton(onClick = onCollapse) {
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Minimize player",
+                        contentDescription = stringResource(R.string.minimize_player),
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -144,7 +147,7 @@ fun FullPlayer(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "${formatViews(video.viewCount)} views • ${video.publishedTimeText}",
+                    text = "${formatViews(video.viewCount)} • ${video.publishedTimeText}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -190,7 +193,7 @@ fun FullPlayer(
                             contentColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
-                        Text(text = "Subscribe", style = MaterialTheme.typography.labelMedium)
+                        Text(text = stringResource(R.string.subscribe_button), style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
@@ -274,7 +277,7 @@ private fun VideoPlayerSurface(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Replay10,
-                                contentDescription = "Rewind 10s",
+                                contentDescription = stringResource(R.string.rewind_10s),
                                 tint = Color.White,
                                 modifier = Modifier.size(36.dp)
                             )
@@ -288,7 +291,7 @@ private fun VideoPlayerSurface(
                         ) {
                             Icon(
                                 imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (uiState.isPlaying) "Pause" else "Play",
+                                contentDescription = stringResource(if (uiState.isPlaying) R.string.pause_action else R.string.play_action),
                                 tint = Color.White,
                                 modifier = Modifier.size(48.dp)
                             )
@@ -302,7 +305,7 @@ private fun VideoPlayerSurface(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Forward10,
-                                contentDescription = "Forward 10s",
+                                contentDescription = stringResource(R.string.forward_10s),
                                 tint = Color.White,
                                 modifier = Modifier.size(36.dp)
                             )
@@ -324,14 +327,5 @@ private fun formatTime(millis: Long): String {
         "%d:%02d:%02d".format(hours, remMinutes, seconds)
     } else {
         "%02d:%02d".format(minutes, seconds)
-    }
-}
-
-private fun formatViews(views: Long): String {
-    return when {
-        views >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", views / 1_000_000.0)
-        views >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", views / 1_000.0)
-        views > 0 -> "$views"
-        else -> "0"
     }
 }

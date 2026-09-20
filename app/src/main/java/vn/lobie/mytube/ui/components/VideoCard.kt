@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import vn.lobie.mytube.domain.model.Video
+import vn.lobie.mytube.ui.util.formatViews
 
 @Composable
 fun VideoCard(
@@ -98,7 +99,7 @@ fun VideoCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "${video.channel.name} • ${video.formattedViews} • ${video.publishedTimeText}",
+                    text = "${video.channel.name} • ${formatViews(video.viewCount)} • ${video.publishedTimeText}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
