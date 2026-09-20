@@ -101,7 +101,7 @@ class FakeYouTubeRepository : YouTubeRepository {
                 title = sampleVideos.find { it.id == videoId }?.title ?: "Sample Video",
                 videoStreams = listOf(
                     VideoStream(
-                        url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                        url = "https://media.w3.org/2010/05/sintel/trailer.mp4",
                         quality = "720p",
                         format = "mp4",
                         bitrate = 2_500_000
@@ -109,7 +109,7 @@ class FakeYouTubeRepository : YouTubeRepository {
                 ),
                 audioStreams = listOf(
                     AudioStream(
-                        url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                        url = "https://media.w3.org/2010/05/sintel/trailer.mp4",
                         quality = "128kbps",
                         format = "m4a",
                         bitrate = 128_000

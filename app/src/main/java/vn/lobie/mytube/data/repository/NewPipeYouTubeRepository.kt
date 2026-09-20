@@ -1,5 +1,6 @@
 package vn.lobie.mytube.data.repository
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.NewPipe
@@ -33,6 +34,8 @@ class NewPipeYouTubeRepository(
             val kiosk = ServiceList.YouTube.kioskList.defaultKioskExtractor
             kiosk.fetchPage()
             kiosk.initialPage.items.filterIsInstance<StreamInfoItem>().map { it.toDomainModel() }
+        }.onFailure {
+            Log.e("NewPipeRepo", "getTrendingVideos failed", it)
         }
     }
 
@@ -43,6 +46,8 @@ class NewPipeYouTubeRepository(
             searchExtractor.initialPage.items.filterIsInstance<StreamInfoItem>().map {
                 SearchResult.VideoItem(it.toDomainModel())
             }
+        }.onFailure {
+            Log.e("NewPipeRepo", "search($query) failed", it)
         }
     }
 
@@ -71,6 +76,8 @@ class NewPipeYouTubeRepository(
                 thumbnailUrl = bestThumb,
                 description = streamExtractor.description?.content.orEmpty()
             )
+        }.onFailure {
+            Log.e("NewPipeRepo", "getVideoDetails($videoId) failed", it)
         }
     }
 
@@ -79,23 +86,45 @@ class NewPipeYouTubeRepository(
             val streamExtractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
             streamExtractor.fetchPage()
 
-            val videoStreams = streamExtractor.videoStreams.map { vs ->
-                VideoStream(
-                    url = vs.url.orEmpty(),
-                    quality = vs.resolution.orEmpty(),
-                    format = vs.format?.name.orEmpty().lowercase(),
-                    bitrate = vs.bitrate.toLong()
-                )
+            val videoStreams = mutableListOf<VideoStream>()
+            streamExtractor.videoStreams?.forEach { vs ->
+                if (!vs.url.isNullOrEmpty()) {
+                    videoStreams.add(
+                        VideoStream(
+                            url = vs.url,
+                            quality = vs.resolution.orEmpty(),
+                            format = vs.format?.name.orEmpty().lowercase(),
+                            bitrate = vs.bitrate.toLong()
+                        )
+                    )
+                }
             }
 
-            val audioStreams = streamExtractor.audioStreams.map { asStream ->
-                AudioStream(
-                    url = asStream.url.orEmpty(),
+            // Also include video-only streams if progressive streams are unavailable
+            if (videoStreams.isEmpty()) {
+                streamExtractor.videoOnlyStreams?.forEach { vs ->
+                    if (!vs.url.isNullOrEmpty()) {
+                        videoStreams.add(
+                            VideoStream(
+                                url = vs.url,
+                                quality = vs.resolution.orEmpty(),
+                                format = vs.format?.name.orEmpty().lowercase(),
+                                bitrate = vs.bitrate.toLong()
+                            )
+                        )
+                    }
+                }
+            }
+
+            val audioStreams = streamExtractor.audioStreams?.mapNotNull { asStream ->
+                if (asStream.url.isNullOrEmpty()) null
+                else AudioStream(
+                    url = asStream.url,
                     quality = asStream.quality.orEmpty(),
                     format = asStream.format?.name.orEmpty().lowercase(),
                     bitrate = asStream.bitrate.toLong()
                 )
-            }
+            } ?: emptyList()
 
             StreamInfo(
                 videoId = videoId,
@@ -105,6 +134,8 @@ class NewPipeYouTubeRepository(
                 hlsUrl = streamExtractor.hlsUrl,
                 dashUrl = streamExtractor.dashMpdUrl
             )
+        }.onFailure {
+            Log.e("NewPipeRepo", "getStreamInfo($videoId) failed", it)
         }
     }
 

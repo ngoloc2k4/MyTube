@@ -35,6 +35,10 @@ class PlayerViewModel(
     private val repository: YouTubeRepository
 ) : AndroidViewModel(application) {
 
+    companion object {
+        const val FALLBACK_SAMPLE_STREAM = "https://media.w3.org/2010/05/sintel/trailer.mp4"
+    }
+
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
@@ -62,10 +66,12 @@ class PlayerViewModel(
                 }
                 Player.STATE_READY -> {
                     val p = player
+                    val dur = (p?.duration ?: 0L).coerceAtLeast(0L)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            durationMs = (p?.duration ?: 0L).coerceAtLeast(0L),
+                            isPlaying = p?.isPlaying == true,
+                            durationMs = dur,
                             currentPositionMs = (p?.currentPosition ?: 0L).coerceAtLeast(0L),
                             bufferedPositionMs = (p?.bufferedPosition ?: 0L).coerceAtLeast(0L)
                         )
@@ -84,11 +90,15 @@ class PlayerViewModel(
         override fun onPlayerError(error: PlaybackException) {
             android.util.Log.e("PlayerViewModel", "Playback error encountered: ${error.errorCodeName} (${error.errorCode})", error)
             val currentVid = _uiState.value.currentVideo
-            if (currentVid != null && (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
-                        error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)) {
-                android.util.Log.w("PlayerViewModel", "Attempting fallback stream for video ${currentVid.id}")
+            val currentUri = player?.currentMediaItem?.localConfiguration?.uri?.toString()
+
+            // Only attempt fallback if we haven't already failed playing the fallback stream itself
+            if (currentVid != null && currentUri != FALLBACK_SAMPLE_STREAM &&
+                (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+                 error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)) {
+                android.util.Log.w("PlayerViewModel", "Attempting fallback test stream for video ${currentVid.id}")
                 val fallbackItem = MediaItem.Builder()
-                    .setUri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
+                    .setUri(FALLBACK_SAMPLE_STREAM)
                     .setMediaId(currentVid.id)
                     .setMediaMetadata(
                         MediaMetadata.Builder()
@@ -165,14 +175,14 @@ class PlayerViewModel(
             val streamInfo = streamResult.getOrNull()
 
             // Ưu tiên:
-            // 1. Combined VideoStream chất lượng tốt (mp4 720p hoặc bất kỳ)
-            // 2. HLS stream (m3u8)
+            // 1. HLS stream (m3u8) nếu có
+            // 2. Combined / progressive VideoStream
             // 3. AudioStream nếu chỉ có audio
-            // 4. Test fallback MP4
-            val playableUrl = streamInfo?.videoStreams?.firstOrNull { it.url.isNotEmpty() }?.url
-                ?: streamInfo?.hlsUrl
-                ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotEmpty() }?.url
-                ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            // 4. Test fallback MP4 (verified working public stream)
+            val playableUrl = streamInfo?.hlsUrl?.takeIf { it.isNotBlank() }
+                ?: streamInfo?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                ?: FALLBACK_SAMPLE_STREAM
 
             android.util.Log.d("PlayerViewModel", "Resolved stream for ${video.id} -> $playableUrl")
 

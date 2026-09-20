@@ -23,10 +23,11 @@ class InvidiousApiClient(
 
     // Danh sách các instance Invidious public phổ biến và ổn định
     private val instances = listOf(
+        "https://invidious.f5.si",
+        "https://inv.nadeko.net",
         "https://invidious.nerdvpn.de",
-        "https://inv.tux.pizza",
-        "https://invidious.private.coffee",
-        "https://yewtu.be"
+        "https://yt.drgnz.club",
+        "https://invidious.projectsegfau.lt"
     )
 
     private var currentInstanceIndex = 0

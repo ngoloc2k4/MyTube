@@ -6,83 +6,86 @@ import vn.lobie.mytube.domain.model.*
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 
 class InvidiousYouTubeRepository(
-    private val api: InvidiousApiClient = InvidiousApiClient(),
-    private val fallbackRepository: YouTubeRepository = FakeYouTubeRepository()
+    private val api: InvidiousApiClient = InvidiousApiClient()
 ) : YouTubeRepository {
 
     override suspend fun getTrendingVideos(): Result<List<Video>> {
         val result = api.getTrending()
-        return if (result.isSuccess) {
-            val list = result.getOrNull()?.map { it.toDomainModel() } ?: emptyList()
-            if (list.isNotEmpty()) Result.success(list) else fallbackRepository.getTrendingVideos()
-        } else {
-            // Tự động fallback sang mock repository nếu mạng lỗi
-            fallbackRepository.getTrendingVideos()
+        return result.mapCatching { dtos ->
+            val list = dtos.map { it.toDomainModel() }
+            if (list.isEmpty()) throw NoSuchElementException("Empty trending list from Invidious")
+            list
         }
     }
 
     override suspend fun search(query: String): Result<List<SearchResult>> {
         val result = api.search(query)
-        return if (result.isSuccess) {
-            val list = result.getOrNull()?.map {
-                SearchResult.VideoItem(it.toDomainModel())
-            } ?: emptyList()
-            Result.success(list)
-        } else {
-            fallbackRepository.search(query)
+        return result.mapCatching { dtos ->
+            val list = dtos.map { SearchResult.VideoItem(it.toDomainModel()) }
+            if (list.isEmpty()) throw NoSuchElementException("Empty search results from Invidious for $query")
+            list
         }
     }
 
     override suspend fun getVideoDetails(videoId: String): Result<Video> {
         val result = api.getVideo(videoId)
-        return if (result.isSuccess) {
-            val dto = result.getOrNull()
-            if (dto != null) Result.success(dto.toDomainModel())
-            else fallbackRepository.getVideoDetails(videoId)
-        } else {
-            fallbackRepository.getVideoDetails(videoId)
+        return result.mapCatching { dto ->
+            dto.toDomainModel()
         }
     }
 
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
         val result = api.getVideo(videoId)
-        return if (result.isSuccess) {
-            val dto = result.getOrNull()
-            if (dto != null) {
-                val videoStreams = dto.formatStreams.map {
-                    VideoStream(
+        return result.mapCatching { dto ->
+            val videoStreams = mutableListOf<VideoStream>()
+            dto.formatStreams.forEach {
+                if (it.url.isNotBlank()) {
+                    videoStreams.add(
+                        VideoStream(
+                            url = it.url,
+                            quality = it.qualityLabel.ifEmpty { it.quality },
+                            format = it.container.ifEmpty { "mp4" },
+                            bitrate = it.bitrate
+                        )
+                    )
+                }
+            }
+
+            // If no progressive formatStreams, include video-only adaptive formats
+            if (videoStreams.isEmpty()) {
+                dto.adaptiveFormats.filter { it.type.startsWith("video") }.forEach {
+                    if (it.url.isNotBlank()) {
+                        videoStreams.add(
+                            VideoStream(
+                                url = it.url,
+                                quality = it.qualityLabel ?: it.resolution ?: "video",
+                                format = it.container ?: "mp4",
+                                bitrate = it.bitrate
+                            )
+                        )
+                    }
+                }
+            }
+
+            val audioStreams = dto.adaptiveFormats
+                .filter { it.type.startsWith("audio") && it.url.isNotBlank() }
+                .map {
+                    AudioStream(
                         url = it.url,
-                        quality = it.qualityLabel.ifEmpty { it.quality },
-                        format = it.container.ifEmpty { "mp4" },
+                        quality = it.qualityLabel ?: "audio",
+                        format = it.container ?: "m4a",
                         bitrate = it.bitrate
                     )
                 }
-                val audioStreams = dto.adaptiveFormats
-                    .filter { it.type.startsWith("audio") }
-                    .map {
-                        AudioStream(
-                            url = it.url,
-                            quality = it.qualityLabel ?: "audio",
-                            format = it.container ?: "m4a",
-                            bitrate = it.bitrate
-                        )
-                    }
 
-                Result.success(
-                    StreamInfo(
-                        videoId = dto.videoId,
-                        title = dto.title,
-                        videoStreams = videoStreams,
-                        audioStreams = audioStreams,
-                        hlsUrl = dto.hlsUrl,
-                        dashUrl = dto.dashUrl
-                    )
-                )
-            } else {
-                fallbackRepository.getStreamInfo(videoId)
-            }
-        } else {
-            fallbackRepository.getStreamInfo(videoId)
+            StreamInfo(
+                videoId = dto.videoId,
+                title = dto.title,
+                videoStreams = videoStreams,
+                audioStreams = audioStreams,
+                hlsUrl = dto.hlsUrl,
+                dashUrl = dto.dashUrl
+            )
         }
     }
 
