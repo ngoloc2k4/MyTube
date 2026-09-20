@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+"""
+MyTube High-Performance Web Logcat & Debugger
+Direct ADB Wireless streaming with automatic PID detection for vn.lobie.mytube
+"""
+
 import http.server
 import json
 import os
@@ -12,13 +17,50 @@ import urllib.parse
 
 PORT = 8765
 PACKAGE_NAME = "vn.lobie.mytube"
+ADB_BIN = "/data/data/com.termux/files/usr/bin/termux-adb"
+
+def get_lan_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        return s.getsockname()[0]
+    except Exception:
+        return '127.0.0.1'
+    finally:
+        s.close()
+
+def get_connected_device():
+    try:
+        out = subprocess.run([ADB_BIN, "devices"], capture_output=True, text=True, timeout=2).stdout
+        for line in out.splitlines():
+            line = line.strip()
+            if "\tdevice" in line:
+                return line.split("\t")[0]
+    except Exception:
+        pass
+    return None
+
+def get_mytube_pid():
+    dev = get_connected_device()
+    cmd = [ADB_BIN, "-s", dev, "shell", "pidof", PACKAGE_NAME] if dev else [ADB_BIN, "shell", "pidof", PACKAGE_NAME]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=2).stdout.strip()
+        if out and out.isdigit():
+            return out
+        # Sometimes multiple pids are returned
+        pids = out.split()
+        if pids and pids[0].isdigit():
+            return pids[0]
+    except Exception:
+        pass
+    return None
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyTube Live Logcat & Debugger</title>
+    <title>MyTube ADB Live Logcat</title>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -59,13 +101,21 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             gap: 10px;
         }
         .badge {
-            background: #ff0000;
+            background: #e50914;
             color: #fff;
             padding: 3px 8px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: bold;
             letter-spacing: 0.5px;
+        }
+        .pid-badge {
+            background: #238636;
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
         }
         .status-dot {
             width: 10px;
@@ -85,7 +135,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             gap: 8px;
             flex-wrap: wrap;
         }
-        input, select, button {
+        select, input, button {
             background: #21262d;
             color: var(--text-color);
             border: 1px solid var(--border-color);
@@ -101,13 +151,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             cursor: pointer;
             transition: background 0.15s;
         }
-        button:hover {
-            background: #30363d;
-        }
+        button:hover { background: #30363d; }
         button.active {
             background: #238636;
             border-color: #2ea043;
             color: white;
+        }
+        #mode-select {
+            font-weight: 600;
+            color: #58a6ff;
+            border-color: #58a6ff;
         }
         #log-container {
             flex: 1;
@@ -125,9 +178,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             white-space: pre-wrap;
             word-break: break-all;
         }
-        .log-line:hover {
-            background: rgba(255,255,255,0.05);
-        }
+        .log-line:hover { background: rgba(255,255,255,0.05); }
         .log-time { color: var(--text-muted); margin-right: 8px; flex-shrink: 0; }
         .log-level {
             width: 20px;
@@ -140,12 +191,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         .level-V { color: var(--color-v); }
         .level-D { color: var(--color-d); }
         .level-I { color: var(--color-i); }
-        .level-W { color: var(--color-w); background: rgba(210, 153, 34, 0.1); }
-        .level-E { color: var(--color-e); background: rgba(248, 81, 73, 0.15); font-weight: bold; }
-        .level-F { color: var(--color-f); background: rgba(248, 81, 73, 0.3); font-weight: bold; }
-        .log-tag { color: #f0883e; margin-right: 8px; flex-shrink: 0; font-weight: 500; }
+        .level-W { color: var(--color-w); background: rgba(210, 153, 34, 0.15); }
+        .level-E { color: var(--color-e); background: rgba(248, 81, 73, 0.2); font-weight: bold; }
+        .level-F { color: var(--color-f); background: rgba(248, 81, 73, 0.35); font-weight: bold; }
+        .log-tag { color: #f0883e; margin-right: 8px; flex-shrink: 0; font-weight: 600; }
         .log-msg { flex: 1; color: var(--text-color); }
-        .log-line.mytube { background: rgba(88, 166, 255, 0.08); border-left: 2px solid #58a6ff; }
         footer {
             background: var(--panel-bg);
             border-top: 1px solid var(--border-color);
@@ -161,14 +211,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <header>
         <div class="title-group">
             <span class="status-dot" id="status-dot"></span>
-            <strong>MyTube Logcat Stream</strong>
-            <span class="badge">LIVE</span>
+            <strong>MyTube ADB Debugger</strong>
+            <span class="badge">LIVE ADB</span>
+            <span class="pid-badge" id="pid-display">Đang quét PID...</span>
         </div>
         <div class="controls">
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" id="only-mytube" checked>
-                <span>Chỉ MyTube</span>
-            </label>
+            <select id="mode-select">
+                <option value="mytube" selected>⭐ Chỉ riêng App MyTube</option>
+                <option value="all">Toàn bộ thiết bị</option>
+            </select>
             <select id="level-filter">
                 <option value="ALL">Tất cả Levels</option>
                 <option value="D">Debug+ (D, I, W, E)</option>
@@ -176,10 +227,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 <option value="W">Warn+ (W, E)</option>
                 <option value="E">Chỉ Error (E, F)</option>
             </select>
-            <input type="text" id="text-filter" placeholder="Tìm kiếm / Regex tag, msg..." style="width: 200px;">
-            <button id="btn-autoscroll" class="active">Cuộn tự động: BẬT</button>
+            <input type="text" id="text-filter" placeholder="Tìm kiếm tag, msg..." style="width: 180px;">
+            <button id="btn-autoscroll" class="active">Cuộn: BẬT</button>
             <button id="btn-clear">Xóa màn hình</button>
-            <button id="btn-clear-device">Xóa Logcat máy</button>
+            <button id="btn-reconnect">Làm mới kết nối</button>
         </div>
     </header>
 
@@ -187,28 +238,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     <footer>
         <span id="log-count">Đã nhận: 0 dòng log</span>
-        <span>MyTube Android Debug Console</span>
+        <span id="device-info">ADB Wireless</span>
     </footer>
 
     <script>
         const container = document.getElementById('log-container');
         const statusDot = document.getElementById('status-dot');
-        const onlyMyTube = document.getElementById('only-mytube');
+        const modeSelect = document.getElementById('mode-select');
         const levelFilter = document.getElementById('level-filter');
         const textFilter = document.getElementById('text-filter');
         const btnAutoscroll = document.getElementById('btn-autoscroll');
         const btnClear = document.getElementById('btn-clear');
-        const btnClearDevice = document.getElementById('btn-clear-device');
+        const btnReconnect = document.getElementById('btn-reconnect');
         const logCountEl = document.getElementById('log-count');
+        const pidDisplay = document.getElementById('pid-display');
+        const deviceInfo = document.getElementById('device-info');
 
         let autoScroll = true;
         let totalCount = 0;
         const allLogs = [];
-        const MAX_DOM_NODES = 2000;
+        const MAX_DOM = 3000;
+        let eventSource = null;
 
         btnAutoscroll.addEventListener('click', () => {
             autoScroll = !autoScroll;
-            btnAutoscroll.textContent = `Cuộn tự động: ${autoScroll ? 'BẬT' : 'TẮT'}`;
+            btnAutoscroll.textContent = `Cuộn: ${autoScroll ? 'BẬT' : 'TẮT'}`;
             btnAutoscroll.classList.toggle('active', autoScroll);
         });
 
@@ -219,9 +273,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             updateCount();
         });
 
-        btnClearDevice.addEventListener('click', async () => {
-            await fetch('/clear', { method: 'POST' });
-            btnClear.click();
+        btnReconnect.addEventListener('click', () => {
+            connectSSE();
+        });
+
+        modeSelect.addEventListener('change', () => {
+            connectSSE();
         });
 
         function updateCount() {
@@ -229,17 +286,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         }
 
         function matchFilter(item) {
-            const isMyTube = item.raw.toLowerCase().includes('mytube') || item.raw.toLowerCase().includes('vn.lobie.mytube');
-            if (onlyMyTube.checked && !isMyTube) return false;
-
             const lvl = levelFilter.value;
             if (lvl === 'D' && !['D','I','W','E','F'].includes(item.level)) return false;
             if (lvl === 'I' && !['I','W','E','F'].includes(item.level)) return false;
             if (lvl === 'W' && !['W','E','F'].includes(item.level)) return false;
             if (lvl === 'E' && !['E','F'].includes(item.level)) return false;
 
-            const query = textFilter.value.trim().toLowerCase();
-            if (query && !item.raw.toLowerCase().includes(query)) return false;
+            const q = textFilter.value.trim().toLowerCase();
+            if (q && !item.raw.toLowerCase().includes(q)) return false;
 
             return true;
         }
@@ -247,20 +301,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         function reapplyFilter() {
             container.innerHTML = '';
             for (const item of allLogs) {
-                if (matchFilter(item)) {
-                    renderLog(item);
-                }
+                if (matchFilter(item)) renderLog(item);
             }
             if (autoScroll) container.scrollTop = container.scrollHeight;
             updateCount();
         }
 
-        onlyMyTube.addEventListener('change', reapplyFilter);
         levelFilter.addEventListener('change', reapplyFilter);
         textFilter.addEventListener('input', reapplyFilter);
 
         function parseLog(raw) {
-            // e.g. 09-20 19:35:12.345  1234  1234 D MyTubeTag: message
             const match = raw.match(/^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+([VDIWEF])\s+([^:]+):\s*(.*)$/);
             if (match) {
                 return {
@@ -277,52 +327,76 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         }
 
         function renderLog(item) {
-            const isMyTube = item.raw.toLowerCase().includes('mytube') || item.raw.toLowerCase().includes('vn.lobie.mytube');
             const row = document.createElement('div');
-            row.className = `log-line level-${item.level} ${isMyTube ? 'mytube' : ''}`;
+            row.className = `log-line level-${item.level}`;
 
             if (item.time) {
-                const timeSpan = document.createElement('span');
-                timeSpan.className = 'log-time';
-                timeSpan.textContent = item.time.split(' ')[1] || item.time;
-                row.appendChild(timeSpan);
+                const s = document.createElement('span');
+                s.className = 'log-time';
+                s.textContent = item.time.split(' ')[1] || item.time;
+                row.appendChild(s);
             }
 
-            const levelSpan = document.createElement('span');
-            levelSpan.className = `log-level level-${item.level}`;
-            levelSpan.textContent = item.level;
-            row.appendChild(levelSpan);
+            const lvl = document.createElement('span');
+            lvl.className = `log-level level-${item.level}`;
+            lvl.textContent = item.level;
+            row.appendChild(lvl);
 
             if (item.tag) {
-                const tagSpan = document.createElement('span');
-                tagSpan.className = 'log-tag';
-                tagSpan.textContent = item.tag + ':';
-                row.appendChild(tagSpan);
+                const tag = document.createElement('span');
+                tag.className = 'log-tag';
+                tag.textContent = item.tag + ':';
+                row.appendChild(tag);
             }
 
-            const msgSpan = document.createElement('span');
-            msgSpan.className = 'log-msg';
-            msgSpan.textContent = item.msg;
-            row.appendChild(msgSpan);
+            const msg = document.createElement('span');
+            msg.className = 'log-msg';
+            msg.textContent = item.msg;
+            row.appendChild(msg);
 
             container.appendChild(row);
-
-            while (container.childElementCount > MAX_DOM_NODES) {
+            while (container.childElementCount > MAX_DOM) {
                 container.removeChild(container.firstChild);
             }
         }
 
         function connectSSE() {
-            const es = new EventSource('/stream');
-            es.onopen = () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+            btnClear.click();
+
+            const mode = modeSelect.value;
+            const url = `/stream?mode=${mode}`;
+            eventSource = new EventSource(url);
+
+            eventSource.onopen = () => {
                 statusDot.classList.remove('disconnected');
             };
-            es.onerror = () => {
+
+            eventSource.onerror = () => {
                 statusDot.classList.add('disconnected');
-                es.close();
-                setTimeout(connectSSE, 2000);
+                eventSource.close();
+                setTimeout(connectSSE, 3000);
             };
-            es.onmessage = (e) => {
+
+            eventSource.addEventListener('status', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.pid) {
+                        pidDisplay.textContent = `MyTube PID: ${data.pid}`;
+                        pidDisplay.style.background = '#238636';
+                    } else {
+                        pidDisplay.textContent = 'Chưa thấy PID (App chưa mở)';
+                        pidDisplay.style.background = '#8957e5';
+                    }
+                    if (data.device) {
+                        deviceInfo.textContent = `ADB: ${data.device}`;
+                    }
+                } catch(err) {}
+            });
+
+            eventSource.onmessage = (e) => {
                 totalCount++;
                 const item = parseLog(e.data);
                 allLogs.push(item);
@@ -330,9 +404,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
                 if (matchFilter(item)) {
                     renderLog(item);
-                    if (autoScroll) {
-                        container.scrollTop = container.scrollHeight;
-                    }
+                    if (autoScroll) container.scrollTop = container.scrollHeight;
                 }
                 updateCount();
             };
@@ -344,16 +416,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 </html>
 """
 
-def get_lan_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('8.8.8.8', 80))
-        return s.getsockname()[0]
-    except Exception:
-        return '127.0.0.1'
-    finally:
-        s.close()
-
 class LogcatHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -363,6 +425,9 @@ class LogcatHandler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(HTML_TEMPLATE.encode('utf-8'))
         elif parsed.path == '/stream':
+            query = urllib.parse.parse_qs(parsed.query)
+            mode = query.get('mode', ['mytube'])[0]
+
             self.send_response(200)
             self.send_header('Content-Type', 'text/event-stream')
             self.send_header('Cache-Control', 'no-cache')
@@ -370,8 +435,27 @@ class LogcatHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
 
-            # Stream logcat output
-            cmd = ["logcat", "-v", "time"]
+            dev = get_connected_device()
+            pid = get_mytube_pid()
+
+            # Send initial status event
+            status_event = f"event: status\ndata: {json.dumps({'device': dev or 'Localhost', 'pid': pid})}\n\n"
+            self.wfile.write(status_event.encode('utf-8'))
+            self.wfile.flush()
+
+            # Build ADB command
+            cmd = [ADB_BIN]
+            if dev:
+                cmd.extend(["-s", dev])
+            cmd.extend(["logcat", "-v", "time"])
+
+            if mode == 'mytube':
+                if pid:
+                    cmd.append(f"--pid={pid}")
+                else:
+                    # If PID not yet found, stream with grep
+                    cmd.extend(["-e", PACKAGE_NAME])
+
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
             try:
                 for line in proc.stdout:
@@ -388,45 +472,23 @@ class LogcatHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def do_POST(self):
-        if self.path == '/clear':
-            subprocess.run(["logcat", "-c"], check=False)
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(b'{"status":"cleared"}')
-        else:
-            self.send_response(404)
-            self.end_headers()
-
     def log_message(self, format, *args):
-        # Silence standard HTTP access logging to keep console clean
         pass
-
-def print_qr(url):
-    print("=" * 60)
-    print(f"🚀 MyTube Live Logcat & Debugger Server")
-    print(f"📱 Local URL: {url}")
-    print(f"💻 Loopback:  http://localhost:{PORT}")
-    print("=" * 60)
-    print("Quét mã QR dưới đây để mở giao diện Debug trên điện thoại hoặc trình duyệt:")
-    try:
-        qr = subprocess.run(["curl", "-s", f"https://qrenco.de/{url}"], capture_output=True, text=True, timeout=5)
-        if qr.stdout:
-            print(qr.stdout)
-    except Exception as e:
-        print(f"Mở link trực tiếp: {url}")
-    print("=" * 60)
 
 def main():
     lan_ip = get_lan_ip()
     url = f"http://{lan_ip}:{PORT}"
-    print_qr(url)
+    print("=" * 60)
+    print("🚀 MyTube Live Logcat (ADB Wireless Direct Stream)")
+    print(f"📱 Web URL: {url}")
+    print(f"💻 Loopback: http://localhost:{PORT}")
+    print("=" * 60)
+
     server = http.server.ThreadingHTTPServer(('0.0.0.0', PORT), LogcatHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nĐã dừng server logcat.")
+        print("\nĐã dừng server.")
 
 if __name__ == '__main__':
     main()
