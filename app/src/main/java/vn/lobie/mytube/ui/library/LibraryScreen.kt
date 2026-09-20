@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -44,6 +43,7 @@ fun LibraryScreen(
     var newPlaylistName by remember { mutableStateOf("") }
 
     val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
+    val chunkedLikedVideos = remember(likedVideos) { likedVideos.chunked(2) }
 
     if (showCreatePlaylistDialog) {
         AlertDialog(
@@ -348,8 +348,7 @@ fun LibraryScreen(
                 }
             } else {
                 if (isTablet) {
-                    val chunkedLiked = likedVideos.chunked(2)
-                    items(chunkedLiked, key = { it.first().videoId }) { pair ->
+                    items(chunkedLikedVideos, key = { it.first().videoId }) { pair ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
