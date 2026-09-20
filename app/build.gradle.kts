@@ -16,10 +16,6 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        ndk {
-            abiFilters.add("arm64-v8a")
-        }
     }
 
     splits {
@@ -38,7 +34,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug") // Cho phép build APK release cài trực tiếp mà không cần keystore bí mật
+            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             // debug settings
