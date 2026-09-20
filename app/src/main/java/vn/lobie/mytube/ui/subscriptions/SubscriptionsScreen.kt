@@ -46,6 +46,9 @@ fun SubscriptionsScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -169,9 +172,6 @@ fun SubscriptionsScreen(
                         }
                     }
                 } else {
-                    val configuration = LocalConfiguration.current
-                    val isTablet = configuration.screenWidthDp >= 600
-
                     if (isTablet) {
                         val chunked = feedVideos.chunked(2)
                         items(chunked) { pair ->

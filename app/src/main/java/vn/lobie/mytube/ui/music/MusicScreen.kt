@@ -40,6 +40,9 @@ fun MusicScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp >= 600
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -118,8 +121,6 @@ fun MusicScreen(
                     )
                 }
             } else {
-                val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-                val isTablet = configuration.screenWidthDp >= 600
                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                     columns = if (isTablet) androidx.compose.foundation.lazy.grid.GridCells.Fixed(2) else androidx.compose.foundation.lazy.grid.GridCells.Fixed(1),
                     modifier = Modifier.fillMaxSize(),
@@ -129,7 +130,11 @@ fun MusicScreen(
                         end = if (isTablet) 8.dp else 0.dp
                     )
                 ) {
-                    androidx.compose.foundation.lazy.grid.itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                    items(
+                        count = tracks.size,
+                        key = { index -> tracks[index].id }
+                    ) { index ->
+                        val track = tracks[index]
                         MusicTrackRow(
                             track = track,
                             index = index + 1,
