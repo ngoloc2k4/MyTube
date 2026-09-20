@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "vn.lobie.mytube"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "vn.lobie.mytube"
