@@ -18,6 +18,10 @@
   - `MiniPlayer` (bottom bar, progress line, play/pause, dismiss)
   - `FullPlayer` (`PlayerView` surface, seekbar, gestures, 10s skip, back-collapse)
 
-## Next Phase: Phase 4 (NewPipeExtractor Integration)
-- Tích hợp thư viện NewPipeExtractor
-- Cơ chế Fallback Pipeline đa tầng: Invidious -> NewPipeExtractor -> Fake fallback
+- [ ] **Phase 4: NewPipeExtractor Integration** (In verification)
+  - Thư viện NewPipeExtractor + JDK NIO Desugaring
+  - `NewPipeDownloader` (OkHttp implementation)
+  - `NewPipeYouTubeRepository`
+  - `CascadingYouTubeRepository` (Invidious -> NewPipe -> Fake fallback)
+
+## Next Phase: Phase 5 (Native InnerTube Engine)

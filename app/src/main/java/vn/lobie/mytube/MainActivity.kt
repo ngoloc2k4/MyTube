@@ -15,7 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import vn.lobie.mytube.data.repository.InvidiousYouTubeRepository
+import vn.lobie.mytube.data.repository.CascadingYouTubeRepository
 import vn.lobie.mytube.ui.home.HomeScreen
 import vn.lobie.mytube.ui.home.HomeViewModel
 import vn.lobie.mytube.ui.player.FullPlayer
@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val repository = remember { InvidiousYouTubeRepository() }
+                    val repository = remember { CascadingYouTubeRepository() }
                     val homeViewModel: HomeViewModel = viewModel {
                         HomeViewModel(repository)
                     }

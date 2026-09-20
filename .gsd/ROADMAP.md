@@ -23,8 +23,10 @@
 - [x] Mini Player & Full Player controls với Material 3 & gesture expand/collapse
 
 ## Phase 4: NewPipeExtractor Integration
-- [ ] Tích hợp NewPipeExtractor library
-- [ ] Data Source fallback pipeline: Invidious -> NewPipeExtractor
+- [x] Tích hợp NewPipeExtractor library & desugar_jdk_libs_nio
+- [x] OkHttp Downloader implementation cho NewPipeExtractor
+- [x] `NewPipeYouTubeRepository` domain adapter
+- [x] `CascadingYouTubeRepository` (Invidious -> NewPipe -> Fake fallback)
 
 ## Phase 5: Native InnerTube Engine
 - [ ] Client context & Innertube endpoint requests

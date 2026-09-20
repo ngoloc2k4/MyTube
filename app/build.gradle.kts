@@ -42,6 +42,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
@@ -53,6 +54,8 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -79,6 +82,9 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
+
+    // NewPipeExtractor
+    implementation(libs.newpipeextractor)
 
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
