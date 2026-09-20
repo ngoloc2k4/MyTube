@@ -26,8 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import coil3.compose.AsyncImage
 import vn.lobie.mytube.data.local.db.entity.SubscriptionEntity
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.ui.components.VideoCard
@@ -220,10 +219,7 @@ private fun ChannelAvatarItem(
                 )
             } else {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(avatarUrl)
-                        .crossfade(true)
-                        .build(),
+                    model = avatarUrl,
                     contentDescription = name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

@@ -26,16 +26,15 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      - name: Unified Shared Gradle Cache
+      - name: Single Unified Gradle Cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-            ~/.android/build-cache
-          key: mytube-shared-cache-${{ github.run_id }}
+          key: mytube-gradle-v1-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle*') }}
           restore-keys: |
-            mytube-shared-cache-
+            mytube-gradle-v1-
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
