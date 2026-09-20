@@ -43,6 +43,7 @@ class PlayerViewModel(
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var progressJob: Job? = null
+    private var pendingMediaItem: MediaItem? = null
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -106,6 +107,12 @@ class PlayerViewModel(
                 val controller = future.get()
                 this.player = controller
                 controller.addListener(playerListener)
+                pendingMediaItem?.let { item ->
+                    controller.setMediaItem(item)
+                    controller.prepare()
+                    controller.play()
+                    pendingMediaItem = null
+                }
                 _uiState.update {
                     it.copy(
                         isPlaying = controller.isPlaying,
@@ -155,10 +162,13 @@ class PlayerViewModel(
                 )
                 .build()
 
-            player?.let { p ->
+            val p = player
+            if (p != null) {
                 p.setMediaItem(mediaItem)
                 p.prepare()
                 p.play()
+            } else {
+                pendingMediaItem = mediaItem
             }
         }
     }
@@ -196,6 +206,7 @@ class PlayerViewModel(
 
     fun close() {
         progressJob?.cancel()
+        pendingMediaItem = null
         player?.let { p ->
             p.stop()
             p.clearMediaItems()

@@ -61,13 +61,15 @@ class InnerTubeClient(
                 .build()
 
             val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                return Result.failure(IOException("InnerTube HTTP error: ${response.code}"))
-            }
+            response.use { resp ->
+                if (!resp.isSuccessful) {
+                    return Result.failure(IOException("InnerTube HTTP error: ${resp.code}"))
+                }
 
-            val responseBody = response.body?.string().orEmpty()
-            val jsonObject = json.parseToJsonElement(responseBody).jsonObject
-            Result.success(jsonObject)
+                val responseBody = resp.body?.string().orEmpty()
+                val jsonObject = json.parseToJsonElement(responseBody).jsonObject
+                Result.success(jsonObject)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

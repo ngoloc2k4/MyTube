@@ -329,8 +329,8 @@ private fun formatTime(millis: Long): String {
 
 private fun formatViews(views: Long): String {
     return when {
-        views >= 1_000_000 -> String.format("%.1fM", views / 1_000_000.0)
-        views >= 1_000 -> String.format("%.1fK", views / 1_000.0)
+        views >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", views / 1_000_000.0)
+        views >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", views / 1_000.0)
         views > 0 -> "$views"
         else -> "0"
     }

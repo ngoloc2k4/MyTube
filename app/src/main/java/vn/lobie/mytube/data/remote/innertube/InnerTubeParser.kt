@@ -199,12 +199,17 @@ object InnerTubeParser {
     }
 
     private fun parseViewCount(text: String): Long {
-        val cleaned = text.lowercase().replace(",", "").replace(".", "").replace("views", "").trim()
-        val num = cleaned.filter { it.isDigit() }.toLongOrNull() ?: 0L
-        return when {
-            text.contains("M", ignoreCase = true) -> (num * 1_000_000)
-            text.contains("K", ignoreCase = true) -> (num * 1_000)
-            else -> num
+        val multiplier = when {
+            text.contains("B", ignoreCase = true) -> 1_000_000_000.0
+            text.contains("M", ignoreCase = true) -> 1_000_000.0
+            text.contains("K", ignoreCase = true) -> 1_000.0
+            else -> 1.0
         }
+        val numStr = text.replace(",", "")
+            .replace("views", "", ignoreCase = true)
+            .trim()
+            .takeWhile { it.isDigit() || it == '.' }
+        val num = numStr.toDoubleOrNull() ?: 0.0
+        return (num * multiplier).toLong()
     }
 }

@@ -37,15 +37,17 @@ class NewPipeDownloader(
         }
 
         val response = client.newCall(requestBuilder.build()).execute()
-        val responseBody = response.body?.string().orEmpty()
-        val responseHeaders = response.headers.toMultimap()
+        return response.use { resp ->
+            val responseBody = resp.body?.string().orEmpty()
+            val responseHeaders = resp.headers.toMultimap()
 
-        return Response(
-            response.code,
-            response.message,
-            responseHeaders,
-            responseBody,
-            response.request.url.toString()
-        )
+            Response(
+                resp.code,
+                resp.message,
+                responseHeaders,
+                responseBody,
+                resp.request.url.toString()
+            )
+        }
     }
 }

@@ -25,7 +25,6 @@ fun HomeScreen(
     onVideoClick: (Video) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var searchActive by remember { mutableStateOf(false) }
     var currentQuery by remember { mutableStateOf("") }
 
     Scaffold(
