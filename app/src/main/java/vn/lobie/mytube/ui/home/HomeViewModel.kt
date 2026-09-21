@@ -283,7 +283,7 @@ class HomeViewModel(
             }
         } else if (filter.sort == SearchSort.UPLOAD_DATE) {
             filtered = filtered.sortedByDescending {
-                if (it is SearchResult.VideoItem) it.video.publishedDate else ""
+                if (it is SearchResult.VideoItem) it.video.publishedTimeText else ""
             }
         }
 

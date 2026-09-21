@@ -409,7 +409,8 @@ fun FullPlayer(
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
-                                        val likeText = if (uiState.likesCount > 0) formatCompactNumber(uiState.likesCount) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
+                                        val likes = uiState.likesCount ?: 0L
+                                        val likeText = if (likes > 0L) formatCompactNumber(likes) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(text = likeText, style = MaterialTheme.typography.labelMedium)
                                     }
@@ -432,10 +433,11 @@ fun FullPlayer(
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
                                         )
-                                        if (uiState.dislikesCount > 0) {
+                                        val dislikes = uiState.dislikesCount ?: 0L
+                                        if (dislikes > 0L) {
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = formatCompactNumber(uiState.dislikesCount),
+                                                text = formatCompactNumber(dislikes),
                                                 style = MaterialTheme.typography.labelMedium
                                             )
                                         }
@@ -1035,7 +1037,8 @@ fun FullPlayer(
                                                 contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
                                                 modifier = Modifier.size(18.dp)
                                             )
-                                            val likeText = if (uiState.likesCount > 0) formatCompactNumber(uiState.likesCount) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
+                                            val likes = uiState.likesCount ?: 0L
+                                            val likeText = if (likes > 0L) formatCompactNumber(likes) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(text = likeText, style = MaterialTheme.typography.labelMedium)
                                         }
@@ -1058,10 +1061,11 @@ fun FullPlayer(
                                                 contentDescription = null,
                                                 modifier = Modifier.size(18.dp)
                                             )
-                                            if (uiState.dislikesCount > 0) {
+                                            val dislikes = uiState.dislikesCount ?: 0L
+                                            if (dislikes > 0L) {
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = formatCompactNumber(uiState.dislikesCount),
+                                                    text = formatCompactNumber(dislikes),
                                                     style = MaterialTheme.typography.labelMedium
                                                 )
                                             }
@@ -2460,13 +2464,13 @@ private fun VideoPlayerSurface(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    if (uiState.currentSourceName.isNotEmpty()) {
+                    val sourceName = uiState.currentSourceName
+                    if (!sourceName.isNullOrEmpty()) {
                         AssistChip(
                             onClick = {},
                             label = {
                                 Text(
-                                    uiState.currentSourceName,
+                                    sourceName,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.primaryContainer
