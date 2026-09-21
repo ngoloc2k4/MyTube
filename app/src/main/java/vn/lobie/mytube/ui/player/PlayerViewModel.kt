@@ -312,13 +312,6 @@ class PlayerViewModel(
             val streamInfo = streamResult.getOrNull()
             currentStreamInfo = streamInfo
 
-            if (parsedChapters.isEmpty() && !streamInfo?.description.isNullOrBlank()) {
-                val moreChapters = ChapterParser.parse(streamInfo.description)
-                if (moreChapters.isNotEmpty()) {
-                    _uiState.update { it.copy(chapters = moreChapters, currentChapter = moreChapters.firstOrNull()) }
-                }
-            }
-
             val qualities = streamInfo?.videoStreams
                 ?.map { it.quality }
                 ?.filter { it.isNotBlank() }
