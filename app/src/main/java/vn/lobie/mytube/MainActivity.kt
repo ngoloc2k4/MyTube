@@ -211,7 +211,13 @@ class MainActivity : ComponentActivity() {
                                         onSelectVideo = { playerViewModel.playVideo(it) },
                                         onEnterPip = { enterPip() },
                                         onToggleAutoPlay = { playerViewModel.toggleAutoPlay() },
-                                        onRemoveFromQueue = { playerViewModel.removeFromQueue(it) }
+                                        onRemoveFromQueue = { playerViewModel.removeFromQueue(it) },
+                                        onToggleLoopMode = { playerViewModel.toggleLoopMode() },
+                                        onToggleShuffle = { playerViewModel.toggleShuffle() },
+                                        onToggleResizeMode = { playerViewModel.toggleResizeMode() },
+                                        onSetSleepTimer = { playerViewModel.setSleepTimer(it) },
+                                        onCancelSleepTimer = { playerViewModel.cancelSleepTimer() },
+                                        onSeekToChapter = { playerViewModel.seekToChapter(it) }
                                     )
                                 }
                             }

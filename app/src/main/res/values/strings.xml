@@ -57,4 +57,24 @@
     <string name="fullscreen_toggle">Fullscreen</string>
     <string name="related_videos_title">Related videos</string>
     <string name="queue_title">Up next in queue</string>
+
+    <!-- Advanced Player Controls -->
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_timer_off">Turn off timer</string>
+    <string name="sleep_timer_15m">15 minutes</string>
+    <string name="sleep_timer_30m">30 minutes</string>
+    <string name="sleep_timer_45m">45 minutes</string>
+    <string name="sleep_timer_60m">60 minutes</string>
+    <string name="sleep_timer_end_of_video">End of this video</string>
+    <string name="loop_mode">Loop</string>
+    <string name="loop_mode_off">Loop: Off</string>
+    <string name="loop_mode_one">Loop: Current</string>
+    <string name="loop_mode_all">Loop: Queue</string>
+    <string name="shuffle_mode">Shuffle</string>
+    <string name="aspect_ratio">Zoom</string>
+    <string name="aspect_ratio_fit">Fit (16:9)</string>
+    <string name="aspect_ratio_zoom">Fill screen</string>
+    <string name="chapters_title">Chapters</string>
+    <string name="brightness_label">Brightness</string>
+    <string name="volume_label">Volume</string>
 </resources>

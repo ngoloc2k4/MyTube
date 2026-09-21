@@ -1,8 +1,10 @@
 package vn.lobie.mytube.ui.player
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.media.AudioManager
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -11,8 +13,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -22,9 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalConfiguration
-import vn.lobie.mytube.ui.components.CompactVideoCard
-import coil3.compose.AsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -34,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -45,14 +46,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import vn.lobie.mytube.R
 import vn.lobie.mytube.domain.model.Video
+import vn.lobie.mytube.ui.components.CompactVideoCard
 import vn.lobie.mytube.ui.components.VideoCard
+import vn.lobie.mytube.ui.util.Chapter
 import vn.lobie.mytube.ui.util.formatViews
+import kotlin.math.abs
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -75,6 +81,12 @@ fun FullPlayer(
     onEnterPip: () -> Unit = {},
     onToggleAutoPlay: () -> Unit = {},
     onRemoveFromQueue: (Int) -> Unit = {},
+    onToggleLoopMode: () -> Unit = {},
+    onToggleShuffle: () -> Unit = {},
+    onToggleResizeMode: () -> Unit = {},
+    onSetSleepTimer: (Int) -> Unit = {},
+    onCancelSleepTimer: () -> Unit = {},
+    onSeekToChapter: (Chapter) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -84,6 +96,8 @@ fun FullPlayer(
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showChaptersDialog by remember { mutableStateOf(false) }
     var isQueueExpanded by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
@@ -136,6 +150,11 @@ fun FullPlayer(
                     onSeek = onSeek,
                     onEnterPip = onEnterPip,
                     onToggleAutoPlay = onToggleAutoPlay,
+                    onToggleLoopMode = onToggleLoopMode,
+                    onToggleShuffle = onToggleShuffle,
+                    onToggleResizeMode = onToggleResizeMode,
+                    onOpenSleepTimerDialog = { showSleepTimerDialog = true },
+                    onOpenChaptersDialog = { showChaptersDialog = true },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -204,6 +223,11 @@ fun FullPlayer(
                         onSeek = onSeek,
                         onEnterPip = onEnterPip,
                         onToggleAutoPlay = onToggleAutoPlay,
+                        onToggleLoopMode = onToggleLoopMode,
+                        onToggleShuffle = onToggleShuffle,
+                        onToggleResizeMode = onToggleResizeMode,
+                        onOpenSleepTimerDialog = { showSleepTimerDialog = true },
+                        onOpenChaptersDialog = { showChaptersDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -228,13 +252,45 @@ fun FullPlayer(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = formatTime(uiState.currentPositionMs),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+
+                            if (uiState.chapters.isNotEmpty()) {
+                                val chapTitle = uiState.currentChapter?.title ?: stringResource(R.string.chapters_title)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.clickable { showChaptersDialog = true }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FormatListBulleted,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = chapTitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.widthIn(max = 160.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             Text(
                                 text = formatTime(uiState.durationMs),
                                 style = MaterialTheme.typography.labelSmall,
@@ -429,6 +485,101 @@ fun FullPlayer(
                                 Text(text = "PiP", style = MaterialTheme.typography.labelMedium)
                             }
                         }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = onToggleLoopMode,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = when (uiState.loopMode) {
+                                        LoopMode.ONE -> Icons.Default.RepeatOne
+                                        else -> Icons.Default.Repeat
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = when (uiState.loopMode) {
+                                        LoopMode.OFF -> stringResource(R.string.loop_mode_off)
+                                        LoopMode.ONE -> stringResource(R.string.loop_mode_one)
+                                        LoopMode.ALL -> stringResource(R.string.loop_mode_all)
+                                    },
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = onToggleShuffle,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Shuffle,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.shuffle_mode),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = { showSleepTimerDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.sleepTimerRemainingSeconds != null || uiState.isSleepTimerAtEnd) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.sleepTimerRemainingSeconds != null || uiState.isSleepTimerAtEnd) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Bedtime,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                val timerText = if (uiState.sleepTimerRemainingSeconds != null) {
+                                    val mins = (uiState.sleepTimerRemainingSeconds + 59) / 60
+                                    "${mins}m"
+                                } else if (uiState.isSleepTimerAtEnd) {
+                                    "End"
+                                } else {
+                                    stringResource(R.string.sleep_timer)
+                                }
+                                Text(text = timerText, style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        if (uiState.chapters.isNotEmpty()) {
+                            item {
+                                FilledTonalButton(
+                                    onClick = { showChaptersDialog = true },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.FormatListBulleted, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "${stringResource(R.string.chapters_title)} (${uiState.chapters.size})", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
                     }
 
                     // Description Box
@@ -553,6 +704,11 @@ fun FullPlayer(
                         onSeek = onSeek,
                         onEnterPip = onEnterPip,
                         onToggleAutoPlay = onToggleAutoPlay,
+                        onToggleLoopMode = onToggleLoopMode,
+                        onToggleShuffle = onToggleShuffle,
+                        onToggleResizeMode = onToggleResizeMode,
+                        onOpenSleepTimerDialog = { showSleepTimerDialog = true },
+                        onOpenChaptersDialog = { showChaptersDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -577,13 +733,45 @@ fun FullPlayer(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = formatTime(uiState.currentPositionMs),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+
+                            if (uiState.chapters.isNotEmpty()) {
+                                val chapTitle = uiState.currentChapter?.title ?: stringResource(R.string.chapters_title)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.clickable { showChaptersDialog = true }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FormatListBulleted,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = chapTitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.widthIn(max = 160.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             Text(
                                 text = formatTime(uiState.durationMs),
                                 style = MaterialTheme.typography.labelSmall,
@@ -802,6 +990,101 @@ fun FullPlayer(
                                     Text(text = "PiP", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = onToggleLoopMode,
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = when (uiState.loopMode) {
+                                            LoopMode.ONE -> Icons.Default.RepeatOne
+                                            else -> Icons.Default.Repeat
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = when (uiState.loopMode) {
+                                            LoopMode.OFF -> stringResource(R.string.loop_mode_off)
+                                            LoopMode.ONE -> stringResource(R.string.loop_mode_one)
+                                            LoopMode.ALL -> stringResource(R.string.loop_mode_all)
+                                        },
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = onToggleShuffle,
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Shuffle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.shuffle_mode),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = { showSleepTimerDialog = true },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (uiState.sleepTimerRemainingSeconds != null || uiState.isSleepTimerAtEnd) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = if (uiState.sleepTimerRemainingSeconds != null || uiState.isSleepTimerAtEnd) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bedtime,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    val timerText = if (uiState.sleepTimerRemainingSeconds != null) {
+                                        val mins = (uiState.sleepTimerRemainingSeconds + 59) / 60
+                                        "${mins}m"
+                                    } else if (uiState.isSleepTimerAtEnd) {
+                                        "End"
+                                    } else {
+                                        stringResource(R.string.sleep_timer)
+                                    }
+                                    Text(text = timerText, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+
+                            if (uiState.chapters.isNotEmpty()) {
+                                item {
+                                    FilledTonalButton(
+                                        onClick = { showChaptersDialog = true },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.FormatListBulleted, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(text = "${stringResource(R.string.chapters_title)} (${uiState.chapters.size})", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
                         }
 
                         // Expandable Description Box
@@ -945,6 +1228,161 @@ fun FullPlayer(
             }
         )
     }
+
+    // Sleep Timer Dialog
+    if (showSleepTimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showSleepTimerDialog = false },
+            title = { Text(stringResource(R.string.sleep_timer)) },
+            text = {
+                Column {
+                    if (uiState.sleepTimerRemainingSeconds != null) {
+                        val mins = (uiState.sleepTimerRemainingSeconds + 59) / 60
+                        Text(
+                            text = "Đang hẹn giờ: còn khoảng $mins phút",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        FilledTonalButton(
+                            onClick = {
+                                onCancelSleepTimer()
+                                showSleepTimerDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.sleep_timer_off))
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    } else if (uiState.isSleepTimerAtEnd) {
+                        Text(
+                            text = "Đang hẹn giờ: Khi hết video này sẽ dừng",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        FilledTonalButton(
+                            onClick = {
+                                onCancelSleepTimer()
+                                showSleepTimerDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.sleep_timer_off))
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    val options = listOf(
+                        15 to stringResource(R.string.sleep_timer_15m),
+                        30 to stringResource(R.string.sleep_timer_30m),
+                        45 to stringResource(R.string.sleep_timer_45m),
+                        60 to stringResource(R.string.sleep_timer_60m),
+                        -1 to stringResource(R.string.sleep_timer_end_of_video)
+                    )
+
+                    options.forEach { (minutes, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSetSleepTimer(minutes)
+                                    showSleepTimerDialog = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (minutes == -1) Icons.Default.StopCircle else Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSleepTimerDialog = false }) {
+                    Text(stringResource(R.string.clear_action))
+                }
+            }
+        )
+    }
+
+    // Chapters Selection Dialog
+    if (showChaptersDialog && uiState.chapters.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showChaptersDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.FormatListBulleted,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("${stringResource(R.string.chapters_title)} (${uiState.chapters.size})")
+                }
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                ) {
+                    items(uiState.chapters) { chapter ->
+                        val isCurrent = chapter == uiState.currentChapter
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isCurrent) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                    else Color.Transparent
+                                )
+                                .clickable {
+                                    onSeekToChapter(chapter)
+                                    showChaptersDialog = false
+                                }
+                                .padding(vertical = 10.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = formatTime(chapter.timeMs),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCurrent) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = chapter.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showChaptersDialog = false }) {
+                    Text(stringResource(R.string.clear_action))
+                }
+            }
+        )
+    }
 }
 
 @OptIn(UnstableApi::class)
@@ -966,6 +1404,11 @@ private fun VideoPlayerSurface(
     onSeek: (Long) -> Unit,
     onEnterPip: () -> Unit = {},
     onToggleAutoPlay: () -> Unit = {},
+    onToggleLoopMode: () -> Unit = {},
+    onToggleShuffle: () -> Unit = {},
+    onToggleResizeMode: () -> Unit = {},
+    onOpenSleepTimerDialog: () -> Unit = {},
+    onOpenChaptersDialog: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -973,18 +1416,20 @@ private fun VideoPlayerSurface(
     var seekFeedbackIsForward by remember { mutableStateOf(true) }
     var isSpeedBoosted by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val activity = context as? Activity
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
+    val maxVolume = remember { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
+
+    var gestureIndicatorText by remember { mutableStateOf<String?>(null) }
+    var gestureIndicatorIcon by remember { mutableStateOf<ImageVector?>(null) }
+    var gestureIndicatorPercent by remember { mutableStateOf<Float?>(null) }
+    var gestureIndicatorJob by remember { mutableStateOf<Job?>(null) }
+    var isDraggingLeft by remember { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .background(Color.Black)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onVerticalDrag = { _, dragAmount ->
-                        if (dragAmount > 50f && !uiState.isFullscreen) {
-                            onCollapse()
-                        }
-                    }
-                )
-            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onToggleControls() },
@@ -1010,6 +1455,72 @@ private fun VideoPlayerSurface(
                             delay(2500)
                             isSpeedBoosted = false
                             onSetSpeed(uiState.playbackSpeed)
+                        }
+                    }
+                )
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        isDraggingLeft = offset.x < size.width / 2
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        if (!uiState.isFullscreen && dragAmount.y > 60f && abs(dragAmount.x) < 30f) {
+                            onCollapse()
+                            return@detectDragGestures
+                        }
+
+                        val deltaY = -dragAmount.y
+                        if (isDraggingLeft) {
+                            activity?.let { act ->
+                                val layoutParams = act.window.attributes
+                                var currentBrightness = layoutParams.screenBrightness
+                                if (currentBrightness < 0f) currentBrightness = 0.5f
+                                val newBrightness = (currentBrightness + deltaY / 400f).coerceIn(0.01f, 1.0f)
+                                layoutParams.screenBrightness = newBrightness
+                                act.window.attributes = layoutParams
+
+                                val percent = (newBrightness * 100).toInt()
+                                gestureIndicatorText = "$percent%"
+                                gestureIndicatorPercent = newBrightness
+                                gestureIndicatorIcon = when {
+                                    newBrightness > 0.6f -> Icons.Default.BrightnessHigh
+                                    newBrightness > 0.3f -> Icons.Default.BrightnessMedium
+                                    else -> Icons.Default.BrightnessLow
+                                }
+                                gestureIndicatorJob?.cancel()
+                                gestureIndicatorJob = coroutineScope.launch {
+                                    delay(1200)
+                                    gestureIndicatorText = null
+                                    gestureIndicatorIcon = null
+                                    gestureIndicatorPercent = null
+                                }
+                            }
+                        } else {
+                            audioManager?.let { am ->
+                                val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                val deltaStep = (deltaY / 30f).toInt()
+                                if (deltaStep != 0) {
+                                    val newVol = (currentVol + deltaStep).coerceIn(0, maxVolume)
+                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                    val percent = ((newVol.toFloat() / maxVolume) * 100).toInt()
+                                    gestureIndicatorText = "$percent%"
+                                    gestureIndicatorPercent = newVol.toFloat() / maxVolume
+                                    gestureIndicatorIcon = when {
+                                        newVol == 0 -> Icons.Default.VolumeOff
+                                        newVol < maxVolume / 2 -> Icons.Default.VolumeDown
+                                        else -> Icons.Default.VolumeUp
+                                    }
+                                    gestureIndicatorJob?.cancel()
+                                    gestureIndicatorJob = coroutineScope.launch {
+                                        delay(1200)
+                                        gestureIndicatorText = null
+                                        gestureIndicatorIcon = null
+                                        gestureIndicatorPercent = null
+                                    }
+                                }
+                            }
                         }
                     }
                 )
@@ -1086,16 +1597,24 @@ private fun VideoPlayerSurface(
                 }
             }
         } else {
-            // ExoPlayer View
+            // ExoPlayer View with reactive resizeMode (FIT / ZOOM)
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         this.player = player
                         useController = false
+                        resizeMode = when (uiState.resizeMode) {
+                            ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
                     }
                 },
                 update = { view ->
                     view.player = player
+                    view.resizeMode = when (uiState.resizeMode) {
+                        ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -1169,6 +1688,51 @@ private fun VideoPlayerSurface(
             }
         }
 
+        // Brightness & Volume HUD Indicator
+        if (gestureIndicatorText != null && gestureIndicatorIcon != null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Black.copy(alpha = 0.8f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = gestureIndicatorIcon!!,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = gestureIndicatorText.orEmpty(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        if (gestureIndicatorPercent != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { gestureIndicatorPercent!! },
+                                modifier = Modifier
+                                    .width(100.dp)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.White.copy(alpha = 0.3f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Controls Overlay
         AnimatedVisibility(
             visible = controlsVisible || uiState.isLoading,
@@ -1209,6 +1773,28 @@ private fun VideoPlayerSurface(
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
+                    // Zoom / Aspect Ratio button
+                    IconButton(onClick = onToggleResizeMode) {
+                        Icon(
+                            imageVector = if (uiState.resizeMode == ResizeMode.ZOOM) Icons.Default.CropFree else Icons.Default.AspectRatio,
+                            contentDescription = stringResource(R.string.aspect_ratio),
+                            tint = if (uiState.resizeMode == ResizeMode.ZOOM) MaterialTheme.colorScheme.primary else Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // Sleep Timer button
+                    IconButton(onClick = onOpenSleepTimerDialog) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Bedtime,
+                                contentDescription = stringResource(R.string.sleep_timer),
+                                tint = if (uiState.sleepTimerRemainingSeconds != null || uiState.isSleepTimerAtEnd) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     // Quality indicator chip
                     AssistChip(
                         onClick = onOpenQualityDialog,
@@ -1233,7 +1819,7 @@ private fun VideoPlayerSurface(
                     }
                 }
 
-                // Center playback controls: SkipPrevious | Play/Pause | SkipNext
+                // Center playback controls: Loop | SkipPrevious | Play/Pause | SkipNext | Shuffle
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         color = MaterialTheme.colorScheme.primary,
@@ -1249,6 +1835,24 @@ private fun VideoPlayerSurface(
                             .fillMaxWidth()
                             .align(Alignment.Center)
                     ) {
+                        // Loop button
+                        IconButton(
+                            onClick = onToggleLoopMode,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = when (uiState.loopMode) {
+                                    LoopMode.ONE -> Icons.Default.RepeatOne
+                                    else -> Icons.Default.Repeat
+                                },
+                                contentDescription = stringResource(R.string.loop_mode),
+                                tint = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
                         // Previous Video Button
                         IconButton(
                             onClick = onPlayPrevious,
@@ -1262,7 +1866,7 @@ private fun VideoPlayerSurface(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(36.dp))
+                        Spacer(modifier = Modifier.width(24.dp))
 
                         // Play/Pause Button
                         IconButton(
@@ -1277,7 +1881,7 @@ private fun VideoPlayerSurface(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(36.dp))
+                        Spacer(modifier = Modifier.width(24.dp))
 
                         // Next Video Button
                         IconButton(
@@ -1289,6 +1893,21 @@ private fun VideoPlayerSurface(
                                 contentDescription = stringResource(R.string.skip_next),
                                 tint = Color.White,
                                 modifier = Modifier.size(38.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        // Shuffle button
+                        IconButton(
+                            onClick = onToggleShuffle,
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = stringResource(R.string.shuffle_mode),
+                                tint = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                     }
@@ -1314,13 +1933,45 @@ private fun VideoPlayerSurface(
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = formatTime(uiState.currentPositionMs),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = Color.White
                             )
+
+                            if (uiState.chapters.isNotEmpty()) {
+                                val chapTitle = uiState.currentChapter?.title ?: stringResource(R.string.chapters_title)
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color.Black.copy(alpha = 0.6f),
+                                    modifier = Modifier.clickable { onOpenChaptersDialog() }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FormatListBulleted,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = chapTitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.widthIn(max = 200.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             Text(
                                 text = formatTime(uiState.durationMs),
                                 style = MaterialTheme.typography.labelSmall,

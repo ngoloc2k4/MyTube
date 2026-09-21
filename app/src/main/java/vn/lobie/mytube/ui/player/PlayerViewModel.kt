@@ -39,6 +39,8 @@ import vn.lobie.mytube.domain.model.StreamInfo
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
 import vn.lobie.mytube.playback.PlaybackService
+import vn.lobie.mytube.ui.util.Chapter
+import vn.lobie.mytube.ui.util.ChapterParser
 
 class PlayerViewModel(
     application: Application,
@@ -98,9 +100,7 @@ class PlayerViewModel(
                     _uiState.update { it.copy(isPlaying = false) }
                     progressJob?.cancel()
                     persistCurrentProgress()
-                    if (_uiState.value.isAutoPlayEnabled) {
-                        playNextVideo()
-                    }
+                    handlePlaybackEnded()
                 }
                 Player.STATE_IDLE -> {
                     _uiState.update { it.copy(isLoading = false) }
@@ -207,6 +207,7 @@ class PlayerViewModel(
         val effectiveIndex = if (queue.isNotEmpty()) queueIndex else 0
 
         relatedVideosJob?.cancel()
+        val parsedChapters = ChapterParser.parse(video.description)
         _uiState.update {
             it.copy(
                 currentVideo = video,
@@ -216,7 +217,9 @@ class PlayerViewModel(
                 isExpanded = true,
                 currentPositionMs = 0L,
                 errorMessage = null,
-                isLoadingRelated = true
+                isLoadingRelated = true,
+                chapters = parsedChapters,
+                currentChapter = parsedChapters.firstOrNull()
             )
         }
 
@@ -308,6 +311,13 @@ class PlayerViewModel(
             val streamResult = repository.getStreamInfo(video.id)
             val streamInfo = streamResult.getOrNull()
             currentStreamInfo = streamInfo
+
+            if (parsedChapters.isEmpty() && !streamInfo?.description.isNullOrBlank()) {
+                val moreChapters = ChapterParser.parse(streamInfo.description)
+                if (moreChapters.isNotEmpty()) {
+                    _uiState.update { it.copy(chapters = moreChapters, currentChapter = moreChapters.firstOrNull()) }
+                }
+            }
 
             val qualities = streamInfo?.videoStreams
                 ?.map { it.quality }
@@ -410,9 +420,19 @@ class PlayerViewModel(
 
     fun playNextVideo() {
         val state = _uiState.value
+        if (state.isShuffleEnabled && state.queue.size > 1) {
+            val candidates = state.queue.indices.filter { it != state.currentQueueIndex }
+            if (candidates.isNotEmpty()) {
+                val randomIndex = candidates.random()
+                playVideo(state.queue[randomIndex], state.queue, randomIndex)
+                return
+            }
+        }
         if (state.queue.isNotEmpty() && state.currentQueueIndex < state.queue.lastIndex) {
             val nextIndex = state.currentQueueIndex + 1
             playVideo(state.queue[nextIndex], state.queue, nextIndex)
+        } else if (state.loopMode == LoopMode.ALL && state.queue.isNotEmpty()) {
+            playVideo(state.queue[0], state.queue, 0)
         } else if (state.relatedVideos.isNotEmpty()) {
             val nextVideo = state.relatedVideos.first()
             val newQueue = state.queue + nextVideo
@@ -484,9 +504,106 @@ class PlayerViewModel(
         } else if (state.currentQueueIndex > 0 && state.queue.isNotEmpty()) {
             val prevIndex = state.currentQueueIndex - 1
             playVideo(state.queue[prevIndex], state.queue, prevIndex)
+        } else if (state.loopMode == LoopMode.ALL && state.queue.isNotEmpty()) {
+            val lastIndex = state.queue.lastIndex
+            playVideo(state.queue[lastIndex], state.queue, lastIndex)
         } else {
             seekTo(0L)
         }
+    }
+
+    private fun handlePlaybackEnded() {
+        val state = _uiState.value
+        if (state.isSleepTimerAtEnd) {
+            cancelSleepTimer()
+            player?.pause()
+            return
+        }
+
+        if (state.loopMode == LoopMode.ONE) {
+            player?.seekTo(0L)
+            player?.play()
+            return
+        }
+
+        if (state.isShuffleEnabled && state.queue.size > 1) {
+            val candidates = state.queue.indices.filter { it != state.currentQueueIndex }
+            if (candidates.isNotEmpty()) {
+                val randomIndex = candidates.random()
+                playVideo(state.queue[randomIndex], state.queue, randomIndex)
+                return
+            }
+        }
+
+        if (state.queue.isNotEmpty() && state.currentQueueIndex < state.queue.lastIndex) {
+            val nextIndex = state.currentQueueIndex + 1
+            playVideo(state.queue[nextIndex], state.queue, nextIndex)
+        } else if (state.loopMode == LoopMode.ALL && state.queue.isNotEmpty()) {
+            playVideo(state.queue[0], state.queue, 0)
+        } else if (state.isAutoPlayEnabled && state.relatedVideos.isNotEmpty()) {
+            val nextVideo = state.relatedVideos.first()
+            val newQueue = state.queue + nextVideo
+            playVideo(nextVideo, newQueue, newQueue.lastIndex)
+        }
+    }
+
+    private var sleepTimerJob: Job? = null
+
+    fun setSleepTimer(minutes: Int) {
+        sleepTimerJob?.cancel()
+        if (minutes == -1) {
+            _uiState.update { it.copy(isSleepTimerAtEnd = true, sleepTimerRemainingSeconds = null) }
+            return
+        }
+        if (minutes <= 0) {
+            cancelSleepTimer()
+            return
+        }
+
+        val totalSeconds = minutes * 60
+        _uiState.update { it.copy(isSleepTimerAtEnd = false, sleepTimerRemainingSeconds = totalSeconds) }
+        sleepTimerJob = viewModelScope.launch {
+            var remaining = totalSeconds
+            while (remaining > 0 && isActive) {
+                delay(1000)
+                remaining--
+                _uiState.update { it.copy(sleepTimerRemainingSeconds = remaining) }
+            }
+            if (remaining <= 0) {
+                player?.pause()
+                _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerAtEnd = false) }
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerAtEnd = false) }
+    }
+
+    fun toggleLoopMode() {
+        val next = when (_uiState.value.loopMode) {
+            LoopMode.OFF -> LoopMode.ALL
+            LoopMode.ALL -> LoopMode.ONE
+            LoopMode.ONE -> LoopMode.OFF
+        }
+        _uiState.update { it.copy(loopMode = next) }
+    }
+
+    fun toggleShuffle() {
+        _uiState.update { it.copy(isShuffleEnabled = !it.isShuffleEnabled) }
+    }
+
+    fun toggleResizeMode() {
+        val next = when (_uiState.value.resizeMode) {
+            ResizeMode.FIT -> ResizeMode.ZOOM
+            ResizeMode.ZOOM -> ResizeMode.FIT
+        }
+        _uiState.update { it.copy(resizeMode = next) }
+    }
+
+    fun seekToChapter(chapter: Chapter) {
+        seekTo(chapter.timeMs)
     }
 
     fun togglePlayPause() {
@@ -596,11 +713,14 @@ class PlayerViewModel(
                     val pos = p.currentPosition.coerceAtLeast(0L)
                     val dur = p.duration.coerceAtLeast(0L)
                     val buf = p.bufferedPosition.coerceAtLeast(0L)
+                    val curChapters = _uiState.value.chapters
+                    val activeChapter = ChapterParser.getCurrentChapter(curChapters, pos)
                     _uiState.update {
                         it.copy(
                             currentPositionMs = pos,
                             durationMs = dur,
-                            bufferedPositionMs = buf
+                            bufferedPositionMs = buf,
+                            currentChapter = activeChapter
                         )
                     }
 

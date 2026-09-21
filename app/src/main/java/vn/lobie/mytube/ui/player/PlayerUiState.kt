@@ -1,6 +1,15 @@
 package vn.lobie.mytube.ui.player
 
 import vn.lobie.mytube.domain.model.Video
+import vn.lobie.mytube.ui.util.Chapter
+
+enum class LoopMode {
+    OFF, ONE, ALL
+}
+
+enum class ResizeMode {
+    FIT, ZOOM
+}
 
 data class PlayerUiState(
     val currentVideo: Video? = null,
@@ -22,14 +31,26 @@ data class PlayerUiState(
     val relatedVideos: List<Video> = emptyList(),
     val isLoadingRelated: Boolean = false,
     val isAutoPlayEnabled: Boolean = true,
+    val loopMode: LoopMode = LoopMode.OFF,
+    val isShuffleEnabled: Boolean = false,
+    val resizeMode: ResizeMode = ResizeMode.FIT,
+    val sleepTimerRemainingSeconds: Int? = null,
+    val isSleepTimerAtEnd: Boolean = false,
+    val chapters: List<Chapter> = emptyList(),
+    val currentChapter: Chapter? = null,
     val errorMessage: String? = null
 ) {
     val progress: Float
         get() = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 
     val hasNextVideo: Boolean
-        get() = queue.isNotEmpty() && currentQueueIndex < queue.lastIndex || relatedVideos.isNotEmpty()
+        get() = when (loopMode) {
+            LoopMode.ALL -> queue.isNotEmpty()
+            LoopMode.ONE -> true
+            LoopMode.OFF -> (queue.isNotEmpty() && currentQueueIndex < queue.lastIndex) || relatedVideos.isNotEmpty()
+        }
 
     val hasPreviousVideo: Boolean
-        get() = currentQueueIndex > 0
+        get() = currentQueueIndex > 0 || (loopMode == LoopMode.ALL && queue.isNotEmpty())
 }
+

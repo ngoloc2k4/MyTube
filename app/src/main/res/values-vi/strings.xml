@@ -57,4 +57,24 @@
     <string name="fullscreen_toggle">Toàn màn hình</string>
     <string name="related_videos_title">Video liên quan</string>
     <string name="queue_title">Danh sách phát tiếp theo</string>
+
+    <!-- Advanced Player Controls -->
+    <string name="sleep_timer">Hẹn giờ tắt</string>
+    <string name="sleep_timer_off">Tắt hẹn giờ</string>
+    <string name="sleep_timer_15m">15 phút</string>
+    <string name="sleep_timer_30m">30 phút</string>
+    <string name="sleep_timer_45m">45 phút</string>
+    <string name="sleep_timer_60m">60 phút</string>
+    <string name="sleep_timer_end_of_video">Khi hết video này</string>
+    <string name="loop_mode">Lặp lại</string>
+    <string name="loop_mode_off">Lặp: Tắt</string>
+    <string name="loop_mode_one">Lặp: Bài này</string>
+    <string name="loop_mode_all">Lặp: Danh sách</string>
+    <string name="shuffle_mode">Xáo trộn</string>
+    <string name="aspect_ratio">Thu phóng</string>
+    <string name="aspect_ratio_fit">Vừa màn hình (16:9)</string>
+    <string name="aspect_ratio_zoom">Lấp đầy (Zoom)</string>
+    <string name="chapters_title">Phân đoạn</string>
+    <string name="brightness_label">Độ sáng</string>
+    <string name="volume_label">Âm lượng</string>
 </resources>
