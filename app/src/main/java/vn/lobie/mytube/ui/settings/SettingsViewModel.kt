@@ -43,7 +43,7 @@ class SettingsViewModel(
             val item = current.removeAt(fromIndex)
             current.add(toIndex, item)
             _enginePriority.value = current
-            repository?.setEnginePriority(current)
+            repository?.updateEnginePriority(current)
         }
     }
 

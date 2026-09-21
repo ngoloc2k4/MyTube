@@ -26,7 +26,7 @@ class CascadingYouTubeRepository(
     @Volatile
     var enginePriority: List<String> = listOf("NewPipe", "Invidious", "InnerTube")
 
-    fun setEnginePriority(order: List<String>) {
+    fun updateEnginePriority(order: List<String>) {
         if (order.isNotEmpty()) {
             enginePriority = order
             Log.d("CascadingRepo", "Engine priority updated: $order")
