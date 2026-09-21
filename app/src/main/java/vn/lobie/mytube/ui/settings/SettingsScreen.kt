@@ -1,10 +1,16 @@
 package vn.lobie.mytube.ui.settings
 
+import android.content.Intent
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,10 +20,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +64,7 @@ fun SettingsScreen(
     var showSourceEngineDialog by remember { mutableStateOf(false) }
     var showInvidiousDialog by remember { mutableStateOf(false) }
     var showAddInstanceDialog by remember { mutableStateOf(false) }
+    var showDebugLogsDialog by remember { mutableStateOf(false) }
     var newInstanceInput by remember { mutableStateOf("") }
 
     Scaffold(
@@ -258,17 +270,33 @@ fun SettingsScreen(
                 )
             }
 
-            // About Section
+            // Diagnostics & About Section
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                SectionHeader("About")
+                SectionHeader("Gỡ lỗi & Giới thiệu")
             }
 
             item {
+                SettingClickableItem(
+                    icon = Icons.Default.BugReport,
+                    title = "Nhật ký gỡ lỗi (Debug Logs)",
+                    subtitle = "Xem log ứng dụng realtime, lọc theo nguồn và sao chép báo cáo lỗi",
+                    onClick = { showDebugLogsDialog = true }
+                )
+            }
+
+            item {
+                val context = LocalContext.current
+                val clipboardManager = LocalClipboardManager.current
                 SettingInfoItem(
                     icon = Icons.Default.Info,
                     title = "MyTube",
-                    subtitle = "Version 2.0.0 (Ad-free, Local-first YouTube client)"
+                    subtitle = "Version 2.0.0 (Chạm để sao chép thông tin thiết bị)",
+                    onClick = {
+                        val devInfo = "Device: ${Build.MANUFACTURER} ${Build.MODEL}\nAndroid: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\nSource Priority: ${enginePriority.joinToString(" > ")}"
+                        clipboardManager.setText(AnnotatedString(devInfo))
+                        Toast.makeText(context, "Đã sao chép thông tin thiết bị!", Toast.LENGTH_SHORT).show()
+                    }
                 )
             }
         }
@@ -650,6 +678,13 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showDebugLogsDialog) {
+        DebugLogsDialog(
+            enginePriority = enginePriority,
+            onDismiss = { showDebugLogsDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -720,9 +755,11 @@ private fun SettingSwitchItem(
 private fun SettingInfoItem(
     icon: ImageVector,
     title: String,
-    subtitle: String
+    subtitle: String,
+    onClick: (() -> Unit)? = null
 ) {
     ListItem(
+        modifier = if (onClick != null) Modifier.clickable { onClick() } else Modifier,
         leadingContent = {
             Icon(
                 imageVector = icon,
@@ -737,6 +774,355 @@ private fun SettingInfoItem(
             Text(text = subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DebugLogsDialog(
+    enginePriority: List<String>,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val logs by vn.lobie.mytube.core.common.AppLogger.logs.collectAsState()
+
+    var selectedTag by remember { mutableStateOf("ALL") }
+    var searchQuery by remember { mutableStateOf("") }
+    var expandedLogId by remember { mutableStateOf<Long?>(null) }
+
+    val filterTags = listOf("ALL", "Player", "Source", "Invidious", "NewPipe", "InnerTube", "Fallback")
+
+    val filteredLogs = remember(logs, selectedTag, searchQuery) {
+        logs.filter { entry ->
+            val matchesTag = when (selectedTag) {
+                "ALL" -> true
+                else -> entry.tag.equals(selectedTag, ignoreCase = true)
+            }
+            val matchesQuery = searchQuery.isBlank() ||
+                entry.message.contains(searchQuery, ignoreCase = true) ||
+                entry.tag.contains(searchQuery, ignoreCase = true) ||
+                (entry.videoId?.contains(searchQuery, ignoreCase = true) == true) ||
+                (entry.raw?.contains(searchQuery, ignoreCase = true) == true)
+
+            matchesTag && matchesQuery
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .fillMaxHeight(0.88f),
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Debug Logs (${filteredLogs.size}/${logs.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Đóng")
+                }
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Search Box
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Lọc theo videoId, lỗi, URL...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Xóa tìm kiếm")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Filter Chips Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    filterTags.forEach { tag ->
+                        FilterChip(
+                            selected = selectedTag == tag,
+                            onClick = { selectedTag = tag },
+                            label = { Text(tag, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Action Bar: Copy All, Share, Clear
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val text = vn.lobie.mytube.core.common.AppLogger.getExportText(enginePriority)
+                            clipboardManager.setText(AnnotatedString(text))
+                            Toast.makeText(context, "Đã sao chép toàn bộ log!", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Sao chép", maxLines = 1)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val text = vn.lobie.mytube.core.common.AppLogger.getExportText(enginePriority)
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ MyTube Debug Log"))
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Chia sẻ", maxLines = 1)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            vn.lobie.mytube.core.common.AppLogger.clear()
+                            Toast.makeText(context, "Đã xóa toàn bộ log", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Xóa")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Log Items List
+                if (filteredLogs.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Không có log nào phù hợp",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(filteredLogs.size) { idx ->
+                            val entry = filteredLogs[idx]
+                            val isExpanded = expandedLogId == entry.id
+                            LogEntryCard(
+                                entry = entry,
+                                isExpanded = isExpanded,
+                                onToggleExpand = {
+                                    expandedLogId = if (isExpanded) null else entry.id
+                                },
+                                onVideoIdClick = { vid ->
+                                    searchQuery = vid
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Đóng")
+            }
+        }
+    )
+}
+
+@Composable
+private fun LogEntryCard(
+    entry: vn.lobie.mytube.core.common.LogEntry,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onVideoIdClick: (String) -> Unit
+) {
+    val levelColor = when (entry.level) {
+        "E" -> Color(0xFFE53935) // Red
+        "W" -> Color(0xFFFB8C00) // Amber / Orange
+        "I" -> Color(0xFF1E88E5) // Blue
+        else -> Color(0xFF757575) // Gray
+    }
+
+    val cardBg = when (entry.level) {
+        "E" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+        "W" -> Color(0xFFFB8C00).copy(alpha = 0.12f)
+        "I" -> Color(0xFF1E88E5).copy(alpha = 0.08f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                if (entry.raw != null) onToggleExpand()
+            },
+        shape = RoundedCornerShape(8.dp),
+        color = cardBg,
+        border = BorderStroke(0.5.dp, levelColor.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Level Badge
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = levelColor
+                ) {
+                    Text(
+                        text = entry.level,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Tag Badge
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                ) {
+                    Text(
+                        text = entry.tag,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
+                if (!entry.videoId.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.clickable { onVideoIdClick(entry.videoId) }
+                    ) {
+                        Text(
+                            text = entry.videoId,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = entry.formattedTime,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = entry.message,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (!entry.raw.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isExpanded) "▲ Ẩn chi tiết" else "▼ Xem chi tiết lỗi / trace",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = levelColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                if (isExpanded) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF1E1E1E),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        SelectionContainer {
+                            Text(
+                                text = entry.raw,
+                                color = Color(0xFFFFB4AB),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.5.sp
+                                ),
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

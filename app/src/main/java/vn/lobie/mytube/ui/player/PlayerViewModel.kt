@@ -116,12 +116,21 @@ class PlayerViewModel(
             android.util.Log.e("PlayerViewModel", "Playback error encountered: ${error.errorCodeName} (${error.errorCode})", error)
             val currentVid = _uiState.value.currentVideo
             val currentUri = player?.currentMediaItem?.localConfiguration?.uri?.toString()
+            val maskedUri = currentUri?.let { vn.lobie.mytube.core.common.AppLogger.maskUrl(it) } ?: "unknown"
+
+            vn.lobie.mytube.core.common.AppLogger.e(
+                tag = "Player",
+                msg = "Playback error: ${error.errorCodeName} (${error.errorCode}) - ${error.message} [url: $maskedUri]",
+                videoId = currentVid?.id,
+                raw = error.stackTraceToString()
+            )
 
             // If audio-only mode was active and failed, retry with main video stream
             if (_uiState.value.isAudioOnly && currentVid != null) {
                 val fallbackMainUrl = currentStreamInfo?.hlsUrl ?: currentStreamInfo?.videoStreams?.firstOrNull()?.url
                 if (fallbackMainUrl != null && fallbackMainUrl != currentUri) {
                     android.util.Log.w("PlayerViewModel", "Audio stream failed, retrying with main stream in audio-only mode")
+                    vn.lobie.mytube.core.common.AppLogger.w("Fallback", "Audio stream failed, retrying with main stream in audio-only mode", currentVid.id)
                     setPlayerMedia(fallbackMainUrl, currentVid, player?.currentPosition ?: 0L)
                     return
                 }
@@ -130,6 +139,7 @@ class PlayerViewModel(
             // Only attempt fallback if we haven't already failed playing the fallback stream itself
             if (currentVid != null && currentUri != FALLBACK_SAMPLE_STREAM) {
                 android.util.Log.w("PlayerViewModel", "Attempting fallback test stream for video ${currentVid.id}")
+                vn.lobie.mytube.core.common.AppLogger.w("Fallback", "Attempting fallback test stream for video ${currentVid.id}", currentVid.id)
                 val fallbackItem = MediaItem.Builder()
                     .setUri(FALLBACK_SAMPLE_STREAM)
                     .setMediaId(currentVid.id)
@@ -378,6 +388,13 @@ class PlayerViewModel(
     }
 
     private fun setPlayerMedia(url: String, video: Video, startPositionMs: Long) {
+        val maskedUrl = vn.lobie.mytube.core.common.AppLogger.maskUrl(url)
+        vn.lobie.mytube.core.common.AppLogger.i(
+            tag = "Player",
+            msg = "Loading media '${video.title}' [source=${_uiState.value.currentSourceName}, quality=${_uiState.value.selectedQuality}, url=$maskedUrl]",
+            videoId = video.id
+        )
+
         val mediaItem = MediaItem.Builder()
             .setUri(url)
             .setMediaId(video.id)
@@ -423,6 +440,11 @@ class PlayerViewModel(
         } ?: return
 
         _uiState.update { it.copy(selectedQuality = quality) }
+        vn.lobie.mytube.core.common.AppLogger.d(
+            tag = "Player",
+            msg = "Quality selected '$quality' [${vn.lobie.mytube.core.common.AppLogger.maskUrl(url)}]",
+            videoId = video.id
+        )
         setPlayerMedia(url, video, currentPos)
     }
 

@@ -48,6 +48,8 @@ class InnerTubeYouTubeRepository(
         return result.mapCatching { json ->
             val (_, streamInfo) = InnerTubeParser.parsePlayerResponse(json, videoId)
             streamInfo
+        }.onFailure {
+            vn.lobie.mytube.core.common.AppLogger.w("InnerTube", "InnerTube stream extraction failed: ${it.message}", videoId, raw = it.stackTraceToString())
         }
     }
 }

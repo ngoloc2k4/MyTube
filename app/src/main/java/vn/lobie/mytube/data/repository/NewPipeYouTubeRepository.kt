@@ -139,6 +139,7 @@ class NewPipeYouTubeRepository(
             )
         }.onFailure {
             Log.e("NewPipeRepo", "getStreamInfo($videoId) failed", it)
+            vn.lobie.mytube.core.common.AppLogger.w("NewPipe", "getStreamInfo failed: ${it.message}", videoId, raw = it.stackTraceToString())
         }
     }
 

@@ -113,14 +113,18 @@ class InvidiousApiClient(
                         return@withContext Result.success(dto)
                     } else {
                         rotateInstance()
-                        lastError = IOException("HTTP ${response.code} from $baseUrl")
+                        val code = response.code
+                        vn.lobie.mytube.core.common.AppLogger.w("Invidious", "Instance $baseUrl HTTP $code for video $videoId, rotating", videoId)
+                        lastError = IOException("HTTP $code from $baseUrl")
                     }
                 }
             } catch (e: Exception) {
                 rotateInstance()
+                vn.lobie.mytube.core.common.AppLogger.w("Invidious", "Instance $baseUrl failed: ${e.message}, rotating", videoId)
                 lastError = e
             }
         }
+        vn.lobie.mytube.core.common.AppLogger.e("Invidious", "All Invidious instances exhausted for video $videoId", videoId)
         Result.failure(lastError ?: IOException("All Invidious instances failed"))
     }
 

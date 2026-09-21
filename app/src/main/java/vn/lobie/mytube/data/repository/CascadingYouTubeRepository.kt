@@ -102,22 +102,33 @@ class CascadingYouTubeRepository(
     }
 
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
+        vn.lobie.mytube.core.common.AppLogger.d("Source", "Requesting stream info (pipeline: ${enginePriority.joinToString(" -> ")})", videoId)
         for ((name, repo) in getSortedStreamPipeline()) {
             try {
                 Log.d("CascadingRepo", "getStreamInfo($videoId): trying $name...")
+                vn.lobie.mytube.core.common.AppLogger.d("Source", "Trying engine: $name", videoId)
                 val result = repo.getStreamInfo(videoId)
                 val info = result.getOrNull()
                 if (result.isSuccess && info != null && (info.videoStreams.isNotEmpty() || !info.hlsUrl.isNullOrEmpty() || info.audioStreams.isNotEmpty())) {
+                    val sampleStream = info.videoStreams.firstOrNull()?.url ?: info.hlsUrl ?: info.audioStreams.firstOrNull()?.url
+                    val masked = sampleStream?.let { vn.lobie.mytube.core.common.AppLogger.maskUrl(it) } ?: "none"
                     Log.d("CascadingRepo", "getStreamInfo($videoId): succeeded using $name (hls=${!info.hlsUrl.isNullOrEmpty()}, videoStreams=${info.videoStreams.size}, audioStreams=${info.audioStreams.size})")
+                    vn.lobie.mytube.core.common.AppLogger.i("Source", "$name succeeded [streams=${info.videoStreams.size}, hls=${!info.hlsUrl.isNullOrEmpty()}], url=$masked", videoId)
                     return Result.success(info.copy(source = name))
                 } else {
-                    Log.w("CascadingRepo", "getStreamInfo($videoId): $name returned no playable streams or failed -> ${result.exceptionOrNull()?.message}")
+                    val errMsg = result.exceptionOrNull()?.message ?: "no playable streams"
+                    Log.w("CascadingRepo", "getStreamInfo($videoId): $name returned no playable streams or failed -> $errMsg")
+                    vn.lobie.mytube.core.common.AppLogger.w("Source", "$name failed: $errMsg", videoId)
+                    vn.lobie.mytube.core.common.AppLogger.i("Fallback", "Cascading: falling back from $name to next engine in pipeline", videoId)
                 }
             } catch (e: Exception) {
                 Log.e("CascadingRepo", "getStreamInfo($videoId): $name threw exception", e)
+                vn.lobie.mytube.core.common.AppLogger.w("Source", "$name threw exception: ${e.message}", videoId, raw = e.stackTraceToString())
+                vn.lobie.mytube.core.common.AppLogger.i("Fallback", "Cascading: falling back from $name after exception", videoId)
             }
         }
         Log.w("CascadingRepo", "getStreamInfo($videoId): all engines failed, falling back to sample stream")
+        vn.lobie.mytube.core.common.AppLogger.e("Source", "All engines exhausted for $videoId, using Fallback test stream", videoId)
         return fallbackRepository.getStreamInfo(videoId).map { it.copy(source = "Fallback") }
     }
 }
