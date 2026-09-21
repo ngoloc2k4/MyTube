@@ -46,19 +46,19 @@ object AppLogger {
         i("System", "AppLogger initialized. Device=${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})")
     }
 
-    fun d(tag: String, msg: String, videoId: String? = null) {
-        if (isVerboseLoggingEnabled) log("D", tag, msg, videoId)
+    fun d(tag: String, msg: String, videoId: String? = null, raw: String? = null) {
+        if (isVerboseLoggingEnabled) log("D", tag, msg, videoId, raw)
     }
 
-    fun i(tag: String, msg: String, videoId: String? = null) = log("I", tag, msg, videoId)
-    fun w(tag: String, msg: String, videoId: String? = null) = log("W", tag, msg, videoId)
+    fun i(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("I", tag, msg, videoId, raw)
+    fun w(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("W", tag, msg, videoId, raw)
     fun e(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("E", tag, msg, videoId, raw)
 
     fun log(level: String, tag: String, message: String, videoId: String? = null, raw: String? = null) {
         val vidPrefix = if (!videoId.isNullOrEmpty()) "[$videoId] " else ""
         when (level) {
             "E" -> Log.e("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
-            "W" -> Log.w("MyTube.$tag", "$vidPrefix$message")
+            "W" -> Log.w("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
             "I" -> Log.i("MyTube.$tag", "$vidPrefix$message")
             else -> Log.d("MyTube.$tag", "$vidPrefix$message")
         }
@@ -83,7 +83,8 @@ object AppLogger {
         }
     }
 
-    private synchronized fun writeToFile(entry: LogEntry) {
+    @Synchronized
+    private fun writeToFile(entry: LogEntry) {
         val file = logFile ?: return
         try {
             if (file.exists() && file.length() > MAX_FILE_SIZE_BYTES) {
