@@ -52,6 +52,8 @@ fun SettingsScreen(
     val invidiousInstances by viewModel.invidiousInstances.collectAsState()
     val instancePings by viewModel.instancePings.collectAsState()
     val isPinging by viewModel.isPinging.collectAsState()
+    val sponsorBlockEnabled by viewModel.sponsorBlockEnabled.collectAsState()
+    val returnDislikeEnabled by viewModel.returnDislikeEnabled.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -258,14 +260,34 @@ fun SettingsScreen(
             // Data & Privacy Section
             item {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                SectionHeader("Data & Privacy")
+                SectionHeader("Bảo mật & Quyền riêng tư (Privacy)")
+            }
+
+            item {
+                SettingSwitchItem(
+                    icon = Icons.Default.FastForward,
+                    title = "Bỏ qua tài trợ (SponsorBlock)",
+                    subtitle = "Tự động tua qua phân đoạn quảng cáo/tài trợ do cộng đồng đóng góp",
+                    checked = sponsorBlockEnabled,
+                    onCheckedChange = { viewModel.setSponsorBlockEnabled(it) }
+                )
+            }
+
+            item {
+                SettingSwitchItem(
+                    icon = Icons.Default.ThumbDown,
+                    title = "Hiện số lượt Dislike (Return YouTube Dislike)",
+                    subtitle = "Lấy dữ liệu lượt không thích thực tế từ RYD API",
+                    checked = returnDislikeEnabled,
+                    onCheckedChange = { viewModel.setReturnDislikeEnabled(it) }
+                )
             }
 
             item {
                 SettingClickableItem(
                     icon = Icons.Default.DeleteSweep,
-                    title = "Clear Watch History",
-                    subtitle = "Delete all locally recorded watch history",
+                    title = "Xóa lịch sử xem",
+                    subtitle = "Xóa toàn bộ dữ liệu lịch sử xem đã lưu cục bộ",
                     onClick = { showClearHistoryDialog = true }
                 )
             }

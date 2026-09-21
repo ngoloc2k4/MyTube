@@ -25,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -44,7 +45,10 @@ import vn.lobie.mytube.ui.util.ChapterParser
 
 class PlayerViewModel(
     application: Application,
-    private val repository: YouTubeRepository
+    private val repository: YouTubeRepository,
+    private val getStreamWithFallbackUseCase: vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase = vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase(repository),
+    private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository),
+    private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository)
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -55,6 +59,7 @@ class PlayerViewModel(
     private val settingsDataStore = SettingsDataStore(application)
     private var likeObservationJob: Job? = null
     private var subObservationJob: Job? = null
+    private var downloadObservationJob: Job? = null
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -255,22 +260,32 @@ class PlayerViewModel(
 
         // Fetch SponsorBlock skip segments asynchronously
         sponsorBlockJob = viewModelScope.launch {
-            val segments = sponsorBlockClient.getSegments(video.id)
-            if (segments.isNotEmpty()) {
-                _uiState.update { it.copy(sponsorSegments = segments) }
+            val enabled = settingsDataStore.sponsorBlockEnabled.first()
+            if (enabled) {
+                val segments = sponsorBlockClient.getSegments(video.id)
+                if (segments.isNotEmpty()) {
+                    _uiState.update { it.copy(sponsorSegments = segments) }
+                }
+            } else {
+                _uiState.update { it.copy(sponsorSegments = emptyList()) }
             }
         }
 
         // Fetch ReturnYouTubeDislike stats asynchronously
         rydJob = viewModelScope.launch {
-            val ryd = rydClient.getDislikeInfo(video.id)
-            if (ryd != null) {
-                _uiState.update {
-                    it.copy(
-                        dislikesCount = ryd.dislikes,
-                        likesCount = if (ryd.likes > 0) ryd.likes else it.likesCount
-                    )
+            val enabled = settingsDataStore.returnDislikeEnabled.first()
+            if (enabled) {
+                val ryd = rydClient.getDislikeInfo(video.id)
+                if (ryd != null) {
+                    _uiState.update {
+                        it.copy(
+                            dislikesCount = ryd.dislikes,
+                            likesCount = if (ryd.likes > 0) ryd.likes else it.likesCount
+                        )
+                    }
                 }
+            } else {
+                _uiState.update { it.copy(dislikesCount = null) }
             }
         }
 
@@ -280,7 +295,7 @@ class PlayerViewModel(
 
             // 1. Search by channel
             if (video.channel.name.isNotBlank()) {
-                val channelResult = repository.search(video.channel.name)
+                val channelResult = searchVideosUseCase(video.channel.name)
                 channelResult.getOrNull()?.mapNotNull {
                     if (it is SearchResult.VideoItem && it.video.id != video.id) it.video else null
                 }?.let { results.addAll(it) }
@@ -294,7 +309,7 @@ class PlayerViewModel(
                 .take(4)
                 .joinToString(" ")
             if (cleanTitleWords.isNotBlank() && cleanTitleWords != video.channel.name) {
-                val titleResult = repository.search(cleanTitleWords)
+                val titleResult = searchVideosUseCase(cleanTitleWords)
                 titleResult.getOrNull()?.mapNotNull {
                     if (it is SearchResult.VideoItem && it.video.id != video.id) it.video else null
                 }?.let { results.addAll(it) }
@@ -302,7 +317,7 @@ class PlayerViewModel(
 
             // 3. Complement with trending if few results
             if (results.size < 6) {
-                repository.getTrendingVideos().getOrNull()?.filter { it.id != video.id }?.let {
+                getTrendingVideosUseCase().getOrNull()?.filter { it.id != video.id }?.let {
                     results.addAll(it)
                 }
             }
@@ -323,6 +338,14 @@ class PlayerViewModel(
         subObservationJob = viewModelScope.launch {
             database.subscriptionDao().isSubscribed(video.channel.id).collect { sub ->
                 _uiState.update { it.copy(isSubscribed = sub) }
+            }
+        }
+
+        downloadObservationJob?.cancel()
+        downloadObservationJob = viewModelScope.launch {
+            database.downloadDao().getAll().collect { list ->
+                val dl = list.firstOrNull { it.videoId == video.id }
+                _uiState.update { it.copy(downloadStatus = dl?.status ?: 0) }
             }
         }
 
@@ -359,7 +382,21 @@ class PlayerViewModel(
                 )
             }
 
-            val streamResult = repository.getStreamInfo(video.id)
+            // Check if downloaded locally for offline playback
+            val downloadedFile = vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).getDownloadedFile(video.id)
+            if (downloadedFile != null) {
+                _uiState.update {
+                    it.copy(
+                        availableQualities = listOf("Offline"),
+                        selectedQuality = "Offline",
+                        currentSourceName = "Ngoại tuyến"
+                    )
+                }
+                setPlayerMedia(android.net.Uri.fromFile(downloadedFile).toString(), video, resumePositionMs)
+                return@launch
+            }
+
+            val streamResult = getStreamWithFallbackUseCase(video.id)
             val streamInfo = streamResult.getOrNull()
             currentStreamInfo = streamInfo
 
@@ -886,11 +923,34 @@ class PlayerViewModel(
         }
     }
 
+    fun downloadCurrentVideo() {
+        val video = _uiState.value.currentVideo ?: return
+        viewModelScope.launch {
+            val stream = currentStreamInfo ?: getStreamWithFallbackUseCase(video.id).getOrNull()
+            val url = stream?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
+                ?: stream?.hlsUrl
+                ?: stream?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
+            if (url != null) {
+                vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).startDownload(
+                    video = video,
+                    streamUrl = url,
+                    quality = stream.videoStreams.firstOrNull()?.quality ?: "720p"
+                )
+            }
+        }
+    }
+
+    fun cancelCurrentDownload() {
+        val video = _uiState.value.currentVideo ?: return
+        vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).deleteDownload(video.id)
+    }
+
     fun close() {
         persistCurrentProgress()
         progressJob?.cancel()
         likeObservationJob?.cancel()
         subObservationJob?.cancel()
+        downloadObservationJob?.cancel()
         pendingMediaItem = null
         player?.let { p ->
             p.stop()

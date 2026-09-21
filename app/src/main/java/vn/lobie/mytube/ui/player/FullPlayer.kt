@@ -104,6 +104,7 @@ fun FullPlayer(
     onSetSubtitleBgColor: (SubtitleBgColor) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
     onClearQueue: () -> Unit = {},
+    onDownloadVideo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -528,6 +529,33 @@ fun FullPlayer(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (isSaved) stringResource(R.string.action_saved) else stringResource(R.string.action_save),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = onDownloadVideo,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = when (uiState.downloadStatus) {
+                                        1 -> Icons.Default.Downloading
+                                        2 -> Icons.Default.DownloadDone
+                                        else -> Icons.Default.Download
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = when (uiState.downloadStatus) {
+                                        1 -> "Đang tải..."
+                                        2 -> "Đã tải"
+                                        else -> "Tải về"
+                                    },
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -1174,6 +1202,33 @@ fun FullPlayer(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = if (isSaved) stringResource(R.string.action_saved) else stringResource(R.string.action_save),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = onDownloadVideo,
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = when (uiState.downloadStatus) {
+                                            1 -> Icons.Default.Downloading
+                                            2 -> Icons.Default.DownloadDone
+                                            else -> Icons.Default.Download
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = when (uiState.downloadStatus) {
+                                            1 -> "Đang tải..."
+                                            2 -> "Đã tải"
+                                            else -> "Tải về"
+                                        },
                                         style = MaterialTheme.typography.labelMedium
                                     )
                                 }

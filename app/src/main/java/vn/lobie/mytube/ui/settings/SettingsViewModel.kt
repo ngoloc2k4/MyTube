@@ -37,6 +37,17 @@ class SettingsViewModel(
     private val _isPinging = MutableStateFlow(false)
     val isPinging: StateFlow<Boolean> = _isPinging.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            settingsDataStore.invidiousInstances.collect { persistedList ->
+                if (persistedList.isNotEmpty()) {
+                    _invidiousInstances.value = persistedList
+                    repository?.invidiousClient?.setInstances(persistedList)
+                }
+            }
+        }
+    }
+
     fun moveEnginePriority(fromIndex: Int, toIndex: Int) {
         val current = _enginePriority.value.toMutableList()
         if (fromIndex in current.indices && toIndex in current.indices) {
@@ -55,6 +66,7 @@ class SettingsViewModel(
         if (!current.contains(formatted)) {
             current.add(formatted)
             _invidiousInstances.value = current
+            viewModelScope.launch { settingsDataStore.setInvidiousInstances(current) }
             pingInstance(formatted)
         }
     }
@@ -64,6 +76,7 @@ class SettingsViewModel(
         val current = _invidiousInstances.value.toMutableList()
         current.remove(url)
         _invidiousInstances.value = current
+        viewModelScope.launch { settingsDataStore.setInvidiousInstances(current) }
     }
 
     fun pingAllInstances() {
@@ -76,6 +89,11 @@ class SettingsViewModel(
                 map[inst] = if (alive) latency else -1L
             }
             _instancePings.value = map
+            // Automatically sort healthy instances with lowest latency first
+            client.sortByLatency(map)
+            val sortedList = client.instances.toList()
+            _invidiousInstances.value = sortedList
+            settingsDataStore.setInvidiousInstances(sortedList)
             _isPinging.value = false
         }
     }
@@ -87,6 +105,10 @@ class SettingsViewModel(
             val map = _instancePings.value.toMutableMap()
             map[inst] = if (alive) latency else -1L
             _instancePings.value = map
+            client.sortByLatency(map)
+            val sortedList = client.instances.toList()
+            _invidiousInstances.value = sortedList
+            settingsDataStore.setInvidiousInstances(sortedList)
         }
     }
 
@@ -200,6 +222,20 @@ class SettingsViewModel(
 
     fun setUiMode(mode: String) {
         viewModelScope.launch { settingsDataStore.setUiMode(mode) }
+    }
+
+    val sponsorBlockEnabled = settingsDataStore.sponsorBlockEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val returnDislikeEnabled = settingsDataStore.returnDislikeEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setSponsorBlockEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setSponsorBlockEnabled(enabled) }
+    }
+
+    fun setReturnDislikeEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setReturnDislikeEnabled(enabled) }
     }
 
     fun clearWatchHistory() {

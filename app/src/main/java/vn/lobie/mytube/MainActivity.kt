@@ -231,7 +231,8 @@ class MainActivity : ComponentActivity() {
                                         onSetSubtitleFontSize = { playerViewModel.setSubtitleFontSize(it) },
                                         onSetSubtitleBgColor = { playerViewModel.setSubtitleBgColor(it) },
                                         onMoveQueueItem = { from, to -> playerViewModel.moveQueueItem(from, to) },
-                                        onClearQueue = { playerViewModel.clearQueue() }
+                                        onClearQueue = { playerViewModel.clearQueue() },
+                                        onDownloadVideo = { playerViewModel.downloadCurrentVideo() }
                                     )
                                 }
                             }

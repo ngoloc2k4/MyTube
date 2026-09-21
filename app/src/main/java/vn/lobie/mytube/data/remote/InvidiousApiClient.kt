@@ -47,6 +47,25 @@ class InvidiousApiClient(
         return false
     }
 
+    fun setInstances(newInstances: List<String>) {
+        if (newInstances.isNotEmpty()) {
+            instances.clear()
+            instances.addAll(newInstances)
+        }
+    }
+
+    fun sortByLatency(pings: Map<String, Long>) {
+        val sorted = instances.sortedWith(compareBy<String> { url ->
+            val latency = pings[url] ?: -1L
+            if (latency > 0) 0 else 1
+        }.thenBy { url ->
+            val latency = pings[url] ?: Long.MAX_VALUE
+            if (latency > 0) latency else Long.MAX_VALUE
+        })
+        instances.clear()
+        instances.addAll(sorted)
+    }
+
     fun removeInstance(url: String) {
         if (instances.size > 1) {
             instances.remove(url)

@@ -59,6 +59,7 @@ data class PlayerUiState(
     val dislikesCount: Long? = null,
     val likesCount: Long? = null,
     val currentSourceName: String? = null,
+    val downloadStatus: Int = 0,
     val errorMessage: String? = null
 ) {
     val progress: Float

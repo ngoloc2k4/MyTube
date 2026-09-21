@@ -27,6 +27,9 @@ class SettingsDataStore(private val context: Context) {
         val CONTENT_REGION = stringPreferencesKey("content_region")
         val APP_LANGUAGE = stringPreferencesKey("app_language")
         val UI_MODE = stringPreferencesKey("ui_mode")
+        val SPONSOR_BLOCK_ENABLED = booleanPreferencesKey("sponsor_block_enabled")
+        val RETURN_DISLIKE_ENABLED = booleanPreferencesKey("return_dislike_enabled")
+        val INVIDIOUS_INSTANCES = stringSetPreferencesKey("invidious_instances")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -143,6 +146,41 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setUiMode(mode: String) {
         context.dataStore.edit { preferences ->
             preferences[UI_MODE] = mode
+        }
+    }
+
+    val sponsorBlockEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SPONSOR_BLOCK_ENABLED] ?: true
+    }
+
+    suspend fun setSponsorBlockEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SPONSOR_BLOCK_ENABLED] = enabled
+        }
+    }
+
+    val returnDislikeEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[RETURN_DISLIKE_ENABLED] ?: true
+    }
+
+    suspend fun setReturnDislikeEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[RETURN_DISLIKE_ENABLED] = enabled
+        }
+    }
+
+    val invidiousInstances: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val set = preferences[INVIDIOUS_INSTANCES]
+        if (set.isNullOrEmpty()) {
+            vn.lobie.mytube.data.remote.InvidiousApiClient.DEFAULT_INSTANCES
+        } else {
+            set.toList()
+        }
+    }
+
+    suspend fun setInvidiousInstances(instances: List<String>) {
+        context.dataStore.edit { preferences ->
+            preferences[INVIDIOUS_INSTANCES] = instances.toSet()
         }
     }
 }

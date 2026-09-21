@@ -56,6 +56,9 @@ class CascadingYouTubeRepository(
         (innerTubeRepository as? InnerTubeYouTubeRepository)?.setLanguage(language)
     }
 
+    @Volatile
+    var enableTestFallback: Boolean = false
+
     override suspend fun getTrendingVideos(): Result<List<Video>> {
         for ((name, repo) in getSortedBrowsePipeline()) {
             val result = repo.getTrendingVideos()
@@ -67,8 +70,13 @@ class CascadingYouTubeRepository(
                 Log.w("CascadingRepo", "getTrendingVideos: $name failed -> ${result.exceptionOrNull()?.message}")
             }
         }
-        Log.w("CascadingRepo", "getTrendingVideos: all engines failed, using FakeRepository")
-        return fallbackRepository.getTrendingVideos()
+        if (enableTestFallback) {
+            Log.w("CascadingRepo", "getTrendingVideos: all engines failed, using FakeRepository (test mode)")
+            return fallbackRepository.getTrendingVideos()
+        }
+        val errMsg = "Không thể kết nối đến máy chủ YouTube qua các nguồn bóc tách (${enginePriority.joinToString(", ")}). Vui lòng kiểm tra mạng hoặc thử lại."
+        Log.e("CascadingRepo", "getTrendingVideos: $errMsg")
+        return Result.failure(java.io.IOException(errMsg))
     }
 
     override suspend fun search(query: String): Result<List<SearchResult>> {
@@ -82,8 +90,13 @@ class CascadingYouTubeRepository(
                 Log.w("CascadingRepo", "search($query): $name failed -> ${result.exceptionOrNull()?.message}")
             }
         }
-        Log.w("CascadingRepo", "search($query): all engines failed, using FakeRepository")
-        return fallbackRepository.search(query)
+        if (enableTestFallback) {
+            Log.w("CascadingRepo", "search($query): all engines failed, using FakeRepository (test mode)")
+            return fallbackRepository.search(query)
+        }
+        val errMsg = "Tìm kiếm thất bại. Tất cả nguồn bóc tách (${enginePriority.joinToString(", ")}) đều không phản hồi."
+        Log.e("CascadingRepo", "search($query): $errMsg")
+        return Result.failure(java.io.IOException(errMsg))
     }
 
     override suspend fun getVideoDetails(videoId: String): Result<Video> {
@@ -97,8 +110,13 @@ class CascadingYouTubeRepository(
                 Log.w("CascadingRepo", "getVideoDetails($videoId): $name failed -> ${result.exceptionOrNull()?.message}")
             }
         }
-        Log.w("CascadingRepo", "getVideoDetails($videoId): all engines failed, using FakeRepository")
-        return fallbackRepository.getVideoDetails(videoId)
+        if (enableTestFallback) {
+            Log.w("CascadingRepo", "getVideoDetails($videoId): all engines failed, using FakeRepository (test mode)")
+            return fallbackRepository.getVideoDetails(videoId)
+        }
+        val errMsg = "Không thể tải thông tin video ($videoId)."
+        Log.e("CascadingRepo", "getVideoDetails($videoId): $errMsg")
+        return Result.failure(java.io.IOException(errMsg))
     }
 
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
@@ -127,8 +145,14 @@ class CascadingYouTubeRepository(
                 vn.lobie.mytube.core.common.AppLogger.i("Fallback", "Cascading: falling back from $name after exception", videoId)
             }
         }
-        Log.w("CascadingRepo", "getStreamInfo($videoId): all engines failed, falling back to sample stream")
-        vn.lobie.mytube.core.common.AppLogger.e("Source", "All engines exhausted for $videoId, using Fallback test stream", videoId)
-        return fallbackRepository.getStreamInfo(videoId).map { it.copy(source = "Fallback") }
+        if (enableTestFallback) {
+            Log.w("CascadingRepo", "getStreamInfo($videoId): all engines failed, falling back to sample stream (test mode)")
+            vn.lobie.mytube.core.common.AppLogger.e("Source", "All engines exhausted for $videoId, using Fallback test stream", videoId)
+            return fallbackRepository.getStreamInfo(videoId).map { it.copy(source = "Fallback") }
+        }
+        val errMsg = "Tất cả nguồn phát (${enginePriority.joinToString(", ")}) đều không trích xuất được luồng video. Vui lòng thử lại hoặc đổi nguồn ưu tiên trong Cài đặt."
+        Log.e("CascadingRepo", "getStreamInfo($videoId): $errMsg")
+        vn.lobie.mytube.core.common.AppLogger.e("Source", "All engines exhausted for $videoId, playback failed", videoId)
+        return Result.failure(java.io.IOException(errMsg))
     }
 }

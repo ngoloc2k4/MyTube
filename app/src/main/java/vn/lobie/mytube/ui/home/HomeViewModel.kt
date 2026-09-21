@@ -42,7 +42,9 @@ data class SearchFilter(
 class HomeViewModel(
     private val repository: YouTubeRepository,
     private val database: MyTubeDatabase? = null,
-    private val settingsDataStore: SettingsDataStore? = null
+    private val settingsDataStore: SettingsDataStore? = null,
+    private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository),
+    private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository)
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -91,7 +93,7 @@ class HomeViewModel(
 
             try {
                 // 1. Fetch base trending videos
-                val trendingResult = repository.getTrendingVideos()
+                val trendingResult = getTrendingVideosUseCase()
                 val trendingVideos = trendingResult.getOrDefault(emptyList())
 
                 // 2. Fetch recommendations based on Watch History & Subscriptions
@@ -131,7 +133,7 @@ class HomeViewModel(
                 if (recommendationQueries.isNotEmpty()) {
                     val deferredResults = recommendationQueries.take(3).map { query ->
                         async {
-                            repository.search(query).getOrNull()?.mapNotNull { item ->
+                            searchVideosUseCase(query).getOrNull()?.mapNotNull { item ->
                                 if (item is SearchResult.VideoItem) item.video else null
                             } ?: emptyList()
                         }
@@ -222,7 +224,7 @@ class HomeViewModel(
                 emptySet()
             }
 
-            repository.search(category.searchQuery ?: "")
+            searchVideosUseCase(category.searchQuery ?: "")
                 .onSuccess { results ->
                     val filteredResults = results
                         .filterNot { item ->
@@ -304,7 +306,7 @@ class HomeViewModel(
                 emptySet()
             }
 
-            repository.search(query)
+            searchVideosUseCase(query)
                 .onSuccess { results ->
                     val rawFiltered = results
                         .filterNot { item ->

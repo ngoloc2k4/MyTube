@@ -30,6 +30,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         .getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val downloads: StateFlow<List<vn.lobie.mytube.data.local.db.entity.DownloadEntity>> = database.downloadDao()
+        .getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun clearHistory() {
         viewModelScope.launch(Dispatchers.IO) {
             database.watchHistoryDao().deleteAll()
@@ -40,6 +44,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             database.watchHistoryDao().deleteById(videoId)
         }
+    }
+
+    fun deleteDownload(videoId: String) {
+        vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).deleteDownload(videoId)
     }
 
     fun createPlaylist(name: String) {
@@ -55,6 +63,16 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 }
+
+fun vn.lobie.mytube.data.local.db.entity.DownloadEntity.toVideo(): Video = Video(
+    id = videoId,
+    title = title,
+    channel = Channel(id = "", name = channelName, avatarUrl = ""),
+    durationSeconds = 0L,
+    viewCount = 0L,
+    publishedTimeText = "Đã tải xuống",
+    thumbnailUrl = thumbnailUrl
+)
 
 fun WatchHistoryEntity.toVideo(): Video = Video(
     id = videoId,
