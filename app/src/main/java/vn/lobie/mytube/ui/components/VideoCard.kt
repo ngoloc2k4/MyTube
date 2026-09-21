@@ -7,7 +7,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.QueuePlayNext
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,7 +30,10 @@ import vn.lobie.mytube.ui.util.formatViews
 fun VideoCard(
     video: Video,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    watchProgress: Float? = null,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -64,6 +72,24 @@ fun VideoCard(
                     fontWeight = FontWeight.Medium
                 )
             }
+
+            // Red watch progress bar at bottom of thumbnail
+            if (watchProgress != null && watchProgress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(3.5.dp)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(watchProgress.coerceIn(0f, 1f))
+                            .background(Color(0xFFFF0000))
+                    )
+                }
+            }
         }
 
         // Video Info Row
@@ -71,7 +97,8 @@ fun VideoCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
         ) {
             // Channel Avatar
             AsyncImage(
@@ -107,6 +134,53 @@ fun VideoCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            // Quick options menu (Play next / Add to queue)
+            if (onPlayNext != null || onAddToQueue != null) {
+                var menuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Tùy chọn",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        if (onPlayNext != null) {
+                            DropdownMenuItem(
+                                text = { Text("Phát tiếp theo") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.QueuePlayNext, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPlayNext()
+                                }
+                            )
+                        }
+                        if (onAddToQueue != null) {
+                            DropdownMenuItem(
+                                text = { Text("Thêm vào danh sách chờ") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.PlaylistAdd, contentDescription = null)
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onAddToQueue()
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

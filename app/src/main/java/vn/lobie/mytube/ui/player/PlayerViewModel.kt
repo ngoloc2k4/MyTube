@@ -28,10 +28,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.db.entity.LikedVideoEntity
 import vn.lobie.mytube.data.local.db.entity.SubscriptionEntity
 import vn.lobie.mytube.data.local.db.entity.WatchHistoryEntity
+import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 import vn.lobie.mytube.domain.model.SearchResult
 import vn.lobie.mytube.domain.model.StreamInfo
 import vn.lobie.mytube.domain.model.Video
@@ -48,6 +50,7 @@ class PlayerViewModel(
     }
 
     private val database = MyTubeDatabase.getInstance(application)
+    private val settingsDataStore = SettingsDataStore(application)
     private var likeObservationJob: Job? = null
     private var subObservationJob: Job? = null
 
@@ -60,6 +63,7 @@ class PlayerViewModel(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var progressJob: Job? = null
     private var pendingMediaItem: MediaItem? = null
+    private var progressSaveCounter = 0
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -68,6 +72,7 @@ class PlayerViewModel(
                 startProgressTicker()
             } else {
                 progressJob?.cancel()
+                persistCurrentProgress()
             }
         }
 
@@ -92,6 +97,10 @@ class PlayerViewModel(
                 Player.STATE_ENDED -> {
                     _uiState.update { it.copy(isPlaying = false) }
                     progressJob?.cancel()
+                    persistCurrentProgress()
+                    if (_uiState.value.isAutoPlayEnabled) {
+                        playNextVideo()
+                    }
                 }
                 Player.STATE_IDLE -> {
                     _uiState.update { it.copy(isLoading = false) }
@@ -148,6 +157,11 @@ class PlayerViewModel(
 
     init {
         initializeController()
+        viewModelScope.launch {
+            settingsDataStore.autoPlayNext.collect { enabled ->
+                _uiState.update { it.copy(isAutoPlayEnabled = enabled) }
+            }
+        }
     }
 
     private fun initializeController() {
@@ -188,6 +202,7 @@ class PlayerViewModel(
         queue: List<Video> = emptyList(),
         queueIndex: Int = 0
     ) {
+        persistCurrentProgress()
         val effectiveQueue = if (queue.isNotEmpty()) queue else listOf(video)
         val effectiveIndex = if (queue.isNotEmpty()) queueIndex else 0
 
@@ -242,23 +257,6 @@ class PlayerViewModel(
             _uiState.update { it.copy(relatedVideos = deduped, isLoadingRelated = false) }
         }
 
-        // Record watch history asynchronously
-        viewModelScope.launch(Dispatchers.IO) {
-            database.watchHistoryDao().insert(
-                WatchHistoryEntity(
-                    videoId = video.id,
-                    title = video.title,
-                    channelId = video.channel.id,
-                    channelName = video.channel.name,
-                    thumbnailUrl = video.thumbnailUrl,
-                    category = "",
-                    durationSeconds = video.durationSeconds,
-                    watchedDurationMs = 0L,
-                    timestamp = System.currentTimeMillis()
-                )
-            )
-        }
-
         // Observe liked & subscribed status for current video
         likeObservationJob?.cancel()
         likeObservationJob = viewModelScope.launch {
@@ -275,6 +273,38 @@ class PlayerViewModel(
         }
 
         viewModelScope.launch {
+            // Check existing history to resume playback
+            val existing = withContext(Dispatchers.IO) {
+                database.watchHistoryDao().getEntry(video.id)
+            }
+            val totalDurationMs = if (video.durationSeconds > 0) video.durationSeconds * 1000L else (existing?.durationSeconds ?: 0L) * 1000L
+            val resumePositionMs = if (existing != null && existing.watchedDurationMs > 5000L) {
+                if (totalDurationMs <= 0L || existing.watchedDurationMs < (totalDurationMs - 10000L)) {
+                    existing.watchedDurationMs
+                } else {
+                    0L // Video was already watched to completion, restart from 0
+                }
+            } else {
+                0L
+            }
+
+            // Record watch history asynchronously
+            withContext(Dispatchers.IO) {
+                database.watchHistoryDao().insert(
+                    WatchHistoryEntity(
+                        videoId = video.id,
+                        title = video.title,
+                        channelId = video.channel.id,
+                        channelName = video.channel.name,
+                        thumbnailUrl = video.thumbnailUrl,
+                        category = "",
+                        durationSeconds = video.durationSeconds,
+                        watchedDurationMs = resumePositionMs,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+
             val streamResult = repository.getStreamInfo(video.id)
             val streamInfo = streamResult.getOrNull()
             currentStreamInfo = streamInfo
@@ -297,7 +327,7 @@ class PlayerViewModel(
                 ?: streamInfo?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
                 ?: FALLBACK_SAMPLE_STREAM
 
-            setPlayerMedia(playableUrl, video, 0L)
+            setPlayerMedia(playableUrl, video, resumePositionMs)
         }
     }
 
@@ -375,13 +405,74 @@ class PlayerViewModel(
     }
 
     fun playNext() {
+        playNextVideo()
+    }
+
+    fun playNextVideo() {
         val state = _uiState.value
         if (state.queue.isNotEmpty() && state.currentQueueIndex < state.queue.lastIndex) {
             val nextIndex = state.currentQueueIndex + 1
             playVideo(state.queue[nextIndex], state.queue, nextIndex)
         } else if (state.relatedVideos.isNotEmpty()) {
             val nextVideo = state.relatedVideos.first()
-            playVideo(nextVideo)
+            val newQueue = state.queue + nextVideo
+            playVideo(nextVideo, newQueue, newQueue.lastIndex)
+        }
+    }
+
+    fun addToQueue(video: Video) {
+        val state = _uiState.value
+        if (state.currentVideo == null || state.queue.isEmpty()) {
+            playVideo(video, listOf(video), 0)
+        } else {
+            val newQueue = state.queue + video
+            _uiState.update { it.copy(queue = newQueue) }
+        }
+    }
+
+    fun playNextInQueue(video: Video) {
+        val state = _uiState.value
+        if (state.currentVideo == null || state.queue.isEmpty()) {
+            playVideo(video, listOf(video), 0)
+        } else {
+            val insertIndex = (state.currentQueueIndex + 1).coerceAtMost(state.queue.size)
+            val mutable = state.queue.toMutableList()
+            mutable.add(insertIndex, video)
+            _uiState.update { it.copy(queue = mutable) }
+        }
+    }
+
+    fun removeFromQueue(index: Int) {
+        val state = _uiState.value
+        if (index !in state.queue.indices) return
+        val mutable = state.queue.toMutableList()
+        mutable.removeAt(index)
+        val newIndex = when {
+            index < state.currentQueueIndex -> state.currentQueueIndex - 1
+            index == state.currentQueueIndex -> state.currentQueueIndex.coerceAtMost(mutable.lastIndex)
+            else -> state.currentQueueIndex
+        }
+        _uiState.update {
+            it.copy(
+                queue = mutable,
+                currentQueueIndex = newIndex
+            )
+        }
+    }
+
+    fun clearQueue() {
+        val state = _uiState.value
+        val cur = state.currentVideo ?: return
+        _uiState.update {
+            it.copy(queue = listOf(cur), currentQueueIndex = 0)
+        }
+    }
+
+    fun toggleAutoPlay() {
+        val next = !_uiState.value.isAutoPlayEnabled
+        _uiState.update { it.copy(isAutoPlayEnabled = next) }
+        viewModelScope.launch {
+            settingsDataStore.setAutoPlayNext(next)
         }
     }
 
@@ -475,6 +566,7 @@ class PlayerViewModel(
     }
 
     fun close() {
+        persistCurrentProgress()
         progressJob?.cancel()
         likeObservationJob?.cancel()
         subObservationJob?.cancel()
@@ -486,17 +578,39 @@ class PlayerViewModel(
         _uiState.update { PlayerUiState() }
     }
 
+    fun persistCurrentProgress() {
+        val v = _uiState.value.currentVideo ?: return
+        val pos = player?.currentPosition ?: return
+        if (pos > 1000L) {
+            viewModelScope.launch(Dispatchers.IO) {
+                database.watchHistoryDao().updateProgress(v.id, pos)
+            }
+        }
+    }
+
     private fun startProgressTicker() {
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
             while (isActive) {
                 player?.let { p ->
+                    val pos = p.currentPosition.coerceAtLeast(0L)
+                    val dur = p.duration.coerceAtLeast(0L)
+                    val buf = p.bufferedPosition.coerceAtLeast(0L)
                     _uiState.update {
                         it.copy(
-                            currentPositionMs = p.currentPosition.coerceAtLeast(0L),
-                            durationMs = p.duration.coerceAtLeast(0L),
-                            bufferedPositionMs = p.bufferedPosition.coerceAtLeast(0L)
+                            currentPositionMs = pos,
+                            durationMs = dur,
+                            bufferedPositionMs = buf
                         )
+                    }
+
+                    progressSaveCounter++
+                    if (progressSaveCounter % 8 == 0 && pos > 1000L) {
+                        _uiState.value.currentVideo?.let { v ->
+                            viewModelScope.launch(Dispatchers.IO) {
+                                database.watchHistoryDao().updateProgress(v.id, pos)
+                            }
+                        }
                     }
                 }
                 delay(500)

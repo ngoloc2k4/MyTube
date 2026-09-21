@@ -157,6 +157,9 @@ fun LibraryScreen(
                     ) {
                         items(history, key = { it.videoId }) { item ->
                             val video = item.toVideo()
+                            val progress = if (item.durationSeconds > 0) {
+                                (item.watchedDurationMs.toFloat() / (item.durationSeconds * 1000f)).coerceIn(0f, 1f)
+                            } else 0f
                             Column(
                                 modifier = Modifier
                                     .width(160.dp)
@@ -175,6 +178,23 @@ fun LibraryScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
+
+                                    if (progress > 0f) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .height(3.dp)
+                                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxHeight()
+                                                    .fillMaxWidth(progress)
+                                                    .background(androidx.compose.ui.graphics.Color(0xFFFF0000))
+                                            )
+                                        }
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(

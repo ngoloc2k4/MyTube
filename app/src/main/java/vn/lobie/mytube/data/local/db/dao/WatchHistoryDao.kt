@@ -32,4 +32,10 @@ interface WatchHistoryDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM watch_history WHERE videoId = :videoId)")
     suspend fun exists(videoId: String): Boolean
+
+    @Query("SELECT * FROM watch_history WHERE videoId = :videoId LIMIT 1")
+    suspend fun getEntry(videoId: String): WatchHistoryEntity?
+
+    @Query("UPDATE watch_history SET watchedDurationMs = :watchedDurationMs, timestamp = :timestamp WHERE videoId = :videoId")
+    suspend fun updateProgress(videoId: String, watchedDurationMs: Long, timestamp: Long = System.currentTimeMillis())
 }

@@ -26,7 +26,8 @@ fun CompactVideoCard(
     video: Video,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isHighlighted: Boolean = false
+    isHighlighted: Boolean = false,
+    watchProgress: Float? = null
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -69,6 +70,24 @@ fun CompactVideoCard(
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                // Red watch progress bar at bottom of thumbnail
+                if (watchProgress != null && watchProgress > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(Color.Black.copy(alpha = 0.5f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(watchProgress.coerceIn(0f, 1f))
+                                .background(Color(0xFFFF0000))
                         )
                     }
                 }

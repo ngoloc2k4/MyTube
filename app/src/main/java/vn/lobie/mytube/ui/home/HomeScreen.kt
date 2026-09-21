@@ -38,7 +38,9 @@ import vn.lobie.mytube.ui.components.VideoCard
 fun HomeScreen(
     viewModel: HomeViewModel,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
-    onVideoClick: (Video) -> Unit = {}
+    onVideoClick: (Video) -> Unit = {},
+    onPlayNext: (Video) -> Unit = {},
+    onAddToQueue: (Video) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var currentQuery by remember { mutableStateOf("") }
@@ -237,7 +239,9 @@ fun HomeScreen(
                             ) { video ->
                                 VideoCard(
                                     video = video,
-                                    onClick = { onVideoClick(video) }
+                                    onClick = { onVideoClick(video) },
+                                    onPlayNext = { onPlayNext(video) },
+                                    onAddToQueue = { onAddToQueue(video) }
                                 )
                             }
                         }

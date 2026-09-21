@@ -21,6 +21,7 @@ data class PlayerUiState(
     val currentQueueIndex: Int = 0,
     val relatedVideos: List<Video> = emptyList(),
     val isLoadingRelated: Boolean = false,
+    val isAutoPlayEnabled: Boolean = true,
     val errorMessage: String? = null
 ) {
     val progress: Float

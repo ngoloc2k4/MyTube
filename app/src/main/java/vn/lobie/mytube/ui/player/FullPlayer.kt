@@ -72,6 +72,9 @@ fun FullPlayer(
     onToggleLike: () -> Unit = {},
     onToggleSubscribe: () -> Unit = {},
     onSelectVideo: (Video) -> Unit = {},
+    onEnterPip: () -> Unit = {},
+    onToggleAutoPlay: () -> Unit = {},
+    onRemoveFromQueue: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -131,6 +134,8 @@ fun FullPlayer(
                     onOpenSpeedDialog = { showSpeedDialog = true },
                     onCollapse = onCollapse,
                     onSeek = onSeek,
+                    onEnterPip = onEnterPip,
+                    onToggleAutoPlay = onToggleAutoPlay,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -197,6 +202,8 @@ fun FullPlayer(
                         onOpenSpeedDialog = { showSpeedDialog = true },
                         onCollapse = onCollapse,
                         onSeek = onSeek,
+                        onEnterPip = onEnterPip,
+                        onToggleAutoPlay = onToggleAutoPlay,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -406,6 +413,22 @@ fun FullPlayer(
                                 )
                             }
                         }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = onEnterPip,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureInPictureAlt,
+                                    contentDescription = "PiP",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = "PiP", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
                     }
 
                     // Description Box
@@ -453,7 +476,8 @@ fun FullPlayer(
                             currentIndex = uiState.currentQueueIndex,
                             isExpanded = isQueueExpanded,
                             onToggleExpand = { isQueueExpanded = !isQueueExpanded },
-                            onSelectVideo = onSelectVideo
+                            onSelectVideo = onSelectVideo,
+                            onRemoveFromQueue = onRemoveFromQueue
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -527,6 +551,8 @@ fun FullPlayer(
                         onOpenSpeedDialog = { showSpeedDialog = true },
                         onCollapse = onCollapse,
                         onSeek = onSeek,
+                        onEnterPip = onEnterPip,
+                        onToggleAutoPlay = onToggleAutoPlay,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -760,6 +786,22 @@ fun FullPlayer(
                                     )
                                 }
                             }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = onEnterPip,
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PictureInPictureAlt,
+                                        contentDescription = "PiP",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(text = "PiP", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
                         }
 
                         // Expandable Description Box
@@ -811,6 +853,7 @@ fun FullPlayer(
                         isExpanded = isQueueExpanded,
                         onToggleExpand = { isQueueExpanded = !isQueueExpanded },
                         onSelectVideo = onSelectVideo,
+                        onRemoveFromQueue = onRemoveFromQueue,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .widthIn(max = if (isTablet) 800.dp else androidx.compose.ui.unit.Dp.Unspecified)
@@ -921,6 +964,8 @@ private fun VideoPlayerSurface(
     onOpenSpeedDialog: () -> Unit,
     onCollapse: () -> Unit,
     onSeek: (Long) -> Unit,
+    onEnterPip: () -> Unit = {},
+    onToggleAutoPlay: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -1144,6 +1189,26 @@ private fun VideoPlayerSurface(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Autoplay toggle button
+                    IconButton(onClick = onToggleAutoPlay) {
+                        Icon(
+                            imageVector = if (uiState.isAutoPlayEnabled) Icons.Default.PlayCircle else Icons.Default.PauseCircleOutline,
+                            contentDescription = "Tự động phát",
+                            tint = if (uiState.isAutoPlayEnabled) Color.White else Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // PiP button
+                    IconButton(onClick = onEnterPip) {
+                        Icon(
+                            imageVector = Icons.Default.PictureInPictureAlt,
+                            contentDescription = "Hình trong hình (PiP)",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
                     // Quality indicator chip
                     AssistChip(
                         onClick = onOpenQualityDialog,
@@ -1289,6 +1354,7 @@ fun VerticalPlaylistQueue(
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
     onSelectVideo: (Video) -> Unit,
+    onRemoveFromQueue: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -1373,11 +1439,31 @@ fun VerticalPlaylistQueue(
                     ) {
                         itemsIndexed(queue) { idx, qVideo ->
                             val isCurrent = idx == currentIndex
-                            CompactVideoCard(
-                                video = qVideo,
-                                onClick = { onSelectVideo(qVideo) },
-                                isHighlighted = isCurrent
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    CompactVideoCard(
+                                        video = qVideo,
+                                        onClick = { onSelectVideo(qVideo) },
+                                        isHighlighted = isCurrent
+                                    )
+                                }
+                                if (!isCurrent) {
+                                    IconButton(
+                                        onClick = { onRemoveFromQueue(idx) },
+                                        modifier = Modifier.size(36.dp).padding(end = 4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Xóa khỏi hàng đợi",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
