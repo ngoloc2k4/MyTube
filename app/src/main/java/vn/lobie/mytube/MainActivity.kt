@@ -217,7 +217,11 @@ class MainActivity : ComponentActivity() {
                                         onToggleResizeMode = { playerViewModel.toggleResizeMode() },
                                         onSetSleepTimer = { playerViewModel.setSleepTimer(it) },
                                         onCancelSleepTimer = { playerViewModel.cancelSleepTimer() },
-                                        onSeekToChapter = { playerViewModel.seekToChapter(it) }
+                                        onSeekToChapter = { playerViewModel.seekToChapter(it) },
+                                        onToggleSponsorBlock = { playerViewModel.toggleSponsorBlock() },
+                                        onUnskipSponsor = { playerViewModel.unskipLastSegment() },
+                                        onDismissSponsorNotice = { playerViewModel.dismissSkippedNotice() },
+                                        onSetDoubleTapSeekSeconds = { playerViewModel.setDoubleTapSeekSeconds(it) }
                                     )
                                 }
                             }

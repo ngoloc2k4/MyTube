@@ -12,3 +12,4 @@
 *.aab
 output-apk/
 release-apk/
+build_temp/

@@ -43,6 +43,7 @@ fun HomeScreen(
     onAddToQueue: (Video) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val watchProgressMap by viewModel.watchProgressMap.collectAsState()
     var currentQuery by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -241,7 +242,8 @@ fun HomeScreen(
                                     video = video,
                                     onClick = { onVideoClick(video) },
                                     onPlayNext = { onPlayNext(video) },
-                                    onAddToQueue = { onAddToQueue(video) }
+                                    onAddToQueue = { onAddToQueue(video) },
+                                    watchProgress = watchProgressMap[video.id]
                                 )
                             }
                         }

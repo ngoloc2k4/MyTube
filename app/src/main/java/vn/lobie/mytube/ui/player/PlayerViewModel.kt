@@ -194,6 +194,8 @@ class PlayerViewModel(
         }, ContextCompat.getMainExecutor(context))
     }
 
+    private val sponsorBlockClient = vn.lobie.mytube.data.remote.sponsorblock.SponsorBlockClient()
+    private var sponsorBlockJob: Job? = null
     private var currentStreamInfo: StreamInfo? = null
     private var relatedVideosJob: Job? = null
 
@@ -207,6 +209,7 @@ class PlayerViewModel(
         val effectiveIndex = if (queue.isNotEmpty()) queueIndex else 0
 
         relatedVideosJob?.cancel()
+        sponsorBlockJob?.cancel()
         val parsedChapters = ChapterParser.parse(video.description)
         _uiState.update {
             it.copy(
@@ -219,8 +222,18 @@ class PlayerViewModel(
                 errorMessage = null,
                 isLoadingRelated = true,
                 chapters = parsedChapters,
-                currentChapter = parsedChapters.firstOrNull()
+                currentChapter = parsedChapters.firstOrNull(),
+                sponsorSegments = emptyList(),
+                lastSkippedSegment = null
             )
+        }
+
+        // Fetch SponsorBlock skip segments asynchronously
+        sponsorBlockJob = viewModelScope.launch {
+            val segments = sponsorBlockClient.getSegments(video.id)
+            if (segments.isNotEmpty()) {
+                _uiState.update { it.copy(sponsorSegments = segments) }
+            }
         }
 
         // Load related videos asynchronously with multi-query enrichment
@@ -599,6 +612,24 @@ class PlayerViewModel(
         seekTo(chapter.timeMs)
     }
 
+    fun toggleSponsorBlock() {
+        _uiState.update { it.copy(isSponsorBlockEnabled = !it.isSponsorBlockEnabled) }
+    }
+
+    fun unskipLastSegment() {
+        val seg = _uiState.value.lastSkippedSegment ?: return
+        player?.seekTo(seg.startMs)
+        _uiState.update { it.copy(lastSkippedSegment = null) }
+    }
+
+    fun dismissSkippedNotice() {
+        _uiState.update { it.copy(lastSkippedSegment = null) }
+    }
+
+    fun setDoubleTapSeekSeconds(seconds: Int) {
+        _uiState.update { it.copy(doubleTapSeekSeconds = seconds) }
+    }
+
     fun togglePlayPause() {
         player?.let { p ->
             if (p.isPlaying) {
@@ -708,12 +739,25 @@ class PlayerViewModel(
                     val buf = p.bufferedPosition.coerceAtLeast(0L)
                     val curChapters = _uiState.value.chapters
                     val activeChapter = ChapterParser.getCurrentChapter(curChapters, pos)
+                    val state = _uiState.value
+
+                    // SponsorBlock automatic segment skip
+                    var skippedSeg: vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment? = null
+                    if (state.isSponsorBlockEnabled && state.sponsorSegments.isNotEmpty()) {
+                        val seg = state.sponsorSegments.firstOrNull { pos >= it.startMs && pos < (it.endMs - 400L) }
+                        if (seg != null && seg.actionType == "skip") {
+                            p.seekTo(seg.endMs)
+                            skippedSeg = seg
+                        }
+                    }
+
                     _uiState.update {
                         it.copy(
                             currentPositionMs = pos,
                             durationMs = dur,
                             bufferedPositionMs = buf,
-                            currentChapter = activeChapter
+                            currentChapter = activeChapter,
+                            lastSkippedSegment = skippedSeg ?: it.lastSkippedSegment
                         )
                     }
 

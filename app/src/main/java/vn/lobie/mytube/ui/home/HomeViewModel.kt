@@ -6,8 +6,12 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.prefs.SettingsDataStore
@@ -24,6 +28,16 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    val watchProgressMap: StateFlow<Map<String, Float>> = (database?.watchHistoryDao()?.getAll() ?: flowOf(emptyList()))
+        .map { list ->
+            list.associate { entity ->
+                val dur = entity.durationSeconds * 1000L
+                val prog = if (dur > 0) (entity.watchedDurationMs.toFloat() / dur.toFloat()).coerceIn(0f, 1f) else 0f
+                entity.videoId to prog
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     init {
         if (settingsDataStore != null) {

@@ -87,12 +87,17 @@ fun FullPlayer(
     onSetSleepTimer: (Int) -> Unit = {},
     onCancelSleepTimer: () -> Unit = {},
     onSeekToChapter: (Chapter) -> Unit = {},
+    onToggleSponsorBlock: () -> Unit = {},
+    onUnskipSponsor: () -> Unit = {},
+    onDismissSponsorNotice: () -> Unit = {},
+    onSetDoubleTapSeekSeconds: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
     var controlsVisible by remember { mutableStateOf(true) }
     val context = LocalContext.current
     var isSaved by remember(video.id) { mutableStateOf(false) }
+    var showSeekDurationDialog by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -155,6 +160,8 @@ fun FullPlayer(
                     onToggleResizeMode = onToggleResizeMode,
                     onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                     onOpenChaptersDialog = { showChaptersDialog = true },
+                    onUnskipSponsor = onUnskipSponsor,
+                    onDismissSponsorNotice = onDismissSponsorNotice,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -228,6 +235,8 @@ fun FullPlayer(
                         onToggleResizeMode = onToggleResizeMode,
                         onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                         onOpenChaptersDialog = { showChaptersDialog = true },
+                        onUnskipSponsor = onUnskipSponsor,
+                        onDismissSponsorNotice = onDismissSponsorNotice,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -580,6 +589,52 @@ fun FullPlayer(
                                 }
                             }
                         }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = onToggleSponsorBlock,
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.isSponsorBlockEnabled) Color(0xFF1B5E20) else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isSponsorBlockEnabled) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FastForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (uiState.isSponsorBlockEnabled) stringResource(R.string.sponsorblock_title) else "${stringResource(R.string.sponsorblock_title)}: Off",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = { showSeekDurationDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DoubleArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "${uiState.doubleTapSeekSeconds}s",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
                     }
 
                     // Description Box
@@ -709,6 +764,8 @@ fun FullPlayer(
                         onToggleResizeMode = onToggleResizeMode,
                         onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                         onOpenChaptersDialog = { showChaptersDialog = true },
+                        onUnskipSponsor = onUnskipSponsor,
+                        onDismissSponsorNotice = onDismissSponsorNotice,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f / 9f)
@@ -1085,6 +1142,52 @@ fun FullPlayer(
                                     }
                                 }
                             }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = onToggleSponsorBlock,
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = if (uiState.isSponsorBlockEnabled) Color(0xFF1B5E20) else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = if (uiState.isSponsorBlockEnabled) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FastForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (uiState.isSponsorBlockEnabled) stringResource(R.string.sponsorblock_title) else "${stringResource(R.string.sponsorblock_title)}: Off",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+
+                            item {
+                                FilledTonalButton(
+                                    onClick = { showSeekDurationDialog = true },
+                                    shape = CircleShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                    colors = ButtonDefaults.filledTonalButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DoubleArrow,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${uiState.doubleTapSeekSeconds}s",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
                         }
 
                         // Expandable Description Box
@@ -1383,6 +1486,69 @@ fun FullPlayer(
             }
         )
     }
+
+    if (showSeekDurationDialog) {
+        SeekDurationDialog(
+            currentSeconds = uiState.doubleTapSeekSeconds,
+            onSelect = onSetDoubleTapSeekSeconds,
+            onDismiss = { showSeekDurationDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun SeekDurationDialog(
+    currentSeconds: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val options = listOf(5, 10, 15, 30)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.seek_duration)) },
+        text = {
+            Column {
+                options.forEach { sec ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelect(sec)
+                                onDismiss()
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = when (sec) {
+                                5 -> stringResource(R.string.seconds_5)
+                                10 -> stringResource(R.string.seconds_10)
+                                15 -> stringResource(R.string.seconds_15)
+                                else -> stringResource(R.string.seconds_30)
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (sec == currentSeconds) FontWeight.Bold else FontWeight.Normal,
+                            color = if (sec == currentSeconds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                        if (sec == currentSeconds) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.dismiss))
+            }
+        }
+    )
 }
 
 @OptIn(UnstableApi::class)
@@ -1409,6 +1575,8 @@ private fun VideoPlayerSurface(
     onToggleResizeMode: () -> Unit = {},
     onOpenSleepTimerDialog: () -> Unit = {},
     onOpenChaptersDialog: () -> Unit = {},
+    onUnskipSponsor: () -> Unit = {},
+    onDismissSponsorNotice: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -1436,12 +1604,14 @@ private fun VideoPlayerSurface(
                     onDoubleTap = { offset ->
                         val isForward = offset.x >= size.width / 2
                         seekFeedbackIsForward = isForward
+                        val sec = uiState.doubleTapSeekSeconds
+                        val delta = sec * 1000L
                         if (isForward) {
-                            onSeekBy(10_000L)
-                            seekFeedbackText = "+10s"
+                            onSeekBy(delta)
+                            seekFeedbackText = "+${sec}s"
                         } else {
-                            onSeekBy(-10_000L)
-                            seekFeedbackText = "-10s"
+                            onSeekBy(-delta)
+                            seekFeedbackText = "-${sec}s"
                         }
                         coroutineScope.launch {
                             delay(650)
@@ -1730,6 +1900,72 @@ private fun VideoPlayerSurface(
                         }
                     }
                 }
+            }
+        }
+
+        // Floating SponsorBlock Auto-Skip Notice
+        val lastSkipped = uiState.lastSkippedSegment
+        AnimatedVisibility(
+            visible = lastSkipped != null,
+            enter = fadeIn() + slideInVertically { it / 2 },
+            exit = fadeOut() + slideOutVertically { it / 2 },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = if (controlsVisible) 76.dp else 24.dp)
+        ) {
+            Surface(
+                color = Color(0xEE1E1E1E),
+                shape = RoundedCornerShape(20.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00D166)),
+                shadowElevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FastForward,
+                        contentDescription = null,
+                        tint = Color(0xFF00D166),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.sponsor_skipped),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    TextButton(
+                        onClick = onUnskipSponsor,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.unskip),
+                            color = Color(0xFF00D166),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismissSponsorNotice,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.dismiss),
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        LaunchedEffect(lastSkipped) {
+            if (lastSkipped != null) {
+                delay(4000)
+                onDismissSponsorNotice()
             }
         }
 

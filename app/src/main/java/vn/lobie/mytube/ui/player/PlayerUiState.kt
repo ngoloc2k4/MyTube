@@ -38,6 +38,10 @@ data class PlayerUiState(
     val isSleepTimerAtEnd: Boolean = false,
     val chapters: List<Chapter> = emptyList(),
     val currentChapter: Chapter? = null,
+    val isSponsorBlockEnabled: Boolean = true,
+    val sponsorSegments: List<vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment> = emptyList(),
+    val lastSkippedSegment: vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment? = null,
+    val doubleTapSeekSeconds: Int = 10,
     val errorMessage: String? = null
 ) {
     val progress: Float
