@@ -9,6 +9,8 @@ class InvidiousYouTubeRepository(
     private val api: InvidiousApiClient = InvidiousApiClient()
 ) : YouTubeRepository {
 
+    val invidiousClient: InvidiousApiClient get() = api
+
     fun setRegion(region: String) {
         api.region = region
     }

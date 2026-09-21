@@ -17,10 +17,78 @@ import java.io.File
 
 class SettingsViewModel(
     private val app: Application,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val repository: vn.lobie.mytube.data.repository.CascadingYouTubeRepository? = null
 ) : AndroidViewModel(app) {
 
     private val db = MyTubeDatabase.getInstance(app)
+
+    private val _enginePriority = MutableStateFlow(repository?.enginePriority ?: listOf("InnerTube", "NewPipe", "Invidious"))
+    val enginePriority: StateFlow<List<String>> = _enginePriority.asStateFlow()
+
+    private val _invidiousInstances = MutableStateFlow<List<String>>(
+        repository?.invidiousClient?.instances?.toList() ?: vn.lobie.mytube.data.remote.InvidiousApiClient.DEFAULT_INSTANCES
+    )
+    val invidiousInstances: StateFlow<List<String>> = _invidiousInstances.asStateFlow()
+
+    private val _instancePings = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val instancePings: StateFlow<Map<String, Long>> = _instancePings.asStateFlow()
+
+    private val _isPinging = MutableStateFlow(false)
+    val isPinging: StateFlow<Boolean> = _isPinging.asStateFlow()
+
+    fun moveEnginePriority(fromIndex: Int, toIndex: Int) {
+        val current = _enginePriority.value.toMutableList()
+        if (fromIndex in current.indices && toIndex in current.indices) {
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+            _enginePriority.value = current
+            repository?.setEnginePriority(current)
+        }
+    }
+
+    fun addInvidiousInstance(url: String) {
+        if (url.isBlank()) return
+        repository?.invidiousClient?.addInstance(url)
+        val formatted = if (url.startsWith("http")) url.trimEnd('/') else "https://${url.trim().trimEnd('/')}"
+        val current = _invidiousInstances.value.toMutableList()
+        if (!current.contains(formatted)) {
+            current.add(formatted)
+            _invidiousInstances.value = current
+            pingInstance(formatted)
+        }
+    }
+
+    fun removeInvidiousInstance(url: String) {
+        repository?.invidiousClient?.removeInstance(url)
+        val current = _invidiousInstances.value.toMutableList()
+        current.remove(url)
+        _invidiousInstances.value = current
+    }
+
+    fun pingAllInstances() {
+        viewModelScope.launch {
+            _isPinging.value = true
+            val client = repository?.invidiousClient ?: vn.lobie.mytube.data.remote.InvidiousApiClient()
+            val map = _instancePings.value.toMutableMap()
+            _invidiousInstances.value.forEach { inst ->
+                val (alive, latency) = client.pingInstance(inst)
+                map[inst] = if (alive) latency else -1L
+            }
+            _instancePings.value = map
+            _isPinging.value = false
+        }
+    }
+
+    fun pingInstance(inst: String) {
+        viewModelScope.launch {
+            val client = repository?.invidiousClient ?: vn.lobie.mytube.data.remote.InvidiousApiClient()
+            val (alive, latency) = client.pingInstance(inst)
+            val map = _instancePings.value.toMutableMap()
+            map[inst] = if (alive) latency else -1L
+            _instancePings.value = map
+        }
+    }
 
     val themeMode = settingsDataStore.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.THEME_SYSTEM)

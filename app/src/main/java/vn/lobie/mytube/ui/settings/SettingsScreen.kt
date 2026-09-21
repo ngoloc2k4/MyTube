@@ -3,12 +3,16 @@ package vn.lobie.mytube.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -33,6 +37,10 @@ fun SettingsScreen(
     val contentRegion by viewModel.contentRegion.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
     val uiMode by viewModel.uiMode.collectAsState()
+    val enginePriority by viewModel.enginePriority.collectAsState()
+    val invidiousInstances by viewModel.invidiousInstances.collectAsState()
+    val instancePings by viewModel.instancePings.collectAsState()
+    val isPinging by viewModel.isPinging.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -44,6 +52,8 @@ fun SettingsScreen(
     var showUiModeDialog by remember { mutableStateOf(false) }
     var showSourceEngineDialog by remember { mutableStateOf(false) }
     var showInvidiousDialog by remember { mutableStateOf(false) }
+    var showAddInstanceDialog by remember { mutableStateOf(false) }
+    var newInstanceInput by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -427,75 +437,215 @@ fun SettingsScreen(
     if (showSourceEngineDialog) {
         AlertDialog(
             onDismissRequest = { showSourceEngineDialog = false },
-            title = { Text("Playback Engine Priority") },
+            title = { Text("Đổi thứ tự ưu tiên nguồn phát") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "MyTube employs an automatic cascading multi-engine strategy to guarantee zero playback interruptions:",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Thứ tự ưu tiên hiện tại (bấm mũi tên để thay đổi):",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("1. NewPipe Extractor", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Primary engine. Full DASH streaming up to 1080p, direct audio extraction.", style = MaterialTheme.typography.bodySmall)
+                    enginePriority.forEachIndexed { index, engine ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ) {
+                                        Text("${index + 1}")
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(engine, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            text = when (engine) {
+                                                "InnerTube" -> "Client chính thức YouTube"
+                                                "NewPipe" -> "Bóc tách DASH trực tiếp"
+                                                "Invidious" -> "API Mirror & xoay vòng IP"
+                                                else -> engine
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Row {
+                                    IconButton(
+                                        onClick = { viewModel.moveEnginePriority(index, index - 1) },
+                                        enabled = index > 0,
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Lên", modifier = Modifier.size(18.dp))
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.moveEnginePriority(index, index + 1) },
+                                        enabled = index < enginePriority.size - 1,
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Xuống", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
                         }
                     }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("2. Invidious API Mirror", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Secondary engine. Bypasses client-side rate limits and bot challenges.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Card(colors = CardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface, disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, disabledContentColor = MaterialTheme.colorScheme.onSurface)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("3. InnerTube Android Client", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Tertiary engine. Emulates official YouTube Android client endpoints.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("4. Local Mock / Cache Fallback", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Emergency offline safe buffer.", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
+                    Text(
+                        text = "Chuỗi ưu tiên: ${enginePriority.joinToString(" > ")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showSourceEngineDialog = false }) {
-                    Text("OK")
+                    Text("Xong")
                 }
             }
         )
     }
 
     if (showInvidiousDialog) {
-        val instances = listOf(
-            "yewtu.be" to "Online (Fastest / Primary)",
-            "invidious.nerdvpn.de" to "Online (Secondary failover)",
-            "inv.tux.pizza" to "Online (Backup instance)",
-            "invidious.jing.rocks" to "Online (Backup instance)"
-        )
         AlertDialog(
             onDismissRequest = { showInvidiousDialog = false },
-            title = { Text("Invidious Instance Pool") },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Invidious Instances")
+                    IconButton(
+                        onClick = { viewModel.pingAllInstances() },
+                        enabled = !isPinging
+                    ) {
+                        if (isPinging) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Đo độ trễ")
+                        }
+                    }
+                }
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        text = "Instances automatically rotate when one encounters HTTP 429 or network timeout:",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Danh sách mirror tự động chuyển đổi khi gặp lỗi. Bấm vào instance để kiểm tra độ trễ:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    instances.forEach { (host, status) ->
-                        ListItem(
-                            leadingContent = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                            headlineContent = { Text(host, fontWeight = FontWeight.Medium) },
-                            supportingContent = { Text(status, style = MaterialTheme.typography.bodySmall) }
-                        )
+
+                    invidiousInstances.forEach { instanceUrl ->
+                        val ping = instancePings[instanceUrl]
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.pingInstance(instanceUrl) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = instanceUrl.removePrefix("https://").removePrefix("http://"),
+                                        fontWeight = FontWeight.Medium,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    val (pingText, pingColor) = when {
+                                        ping == null -> "Chạm để đo độ trễ" to MaterialTheme.colorScheme.onSurfaceVariant
+                                        ping >= 0L -> "Online (${ping}ms)" to Color(0xFF4CAF50)
+                                        else -> "Không phản hồi (Offline)" to MaterialTheme.colorScheme.error
+                                    }
+                                    Text(text = pingText, style = MaterialTheme.typography.labelSmall, color = pingColor)
+                                }
+
+                                if (invidiousInstances.size > 1) {
+                                    IconButton(
+                                        onClick = { viewModel.removeInvidiousInstance(instanceUrl) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Xóa",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { showAddInstanceDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Thêm instance tùy chọn")
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showInvidiousDialog = false }) {
-                    Text("Done")
+                    Text("Đóng")
+                }
+            }
+        )
+    }
+
+    if (showAddInstanceDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddInstanceDialog = false },
+            title = { Text("Thêm Invidious Instance") },
+            text = {
+                Column {
+                    Text("Nhập domain hoặc URL của instance Invidious (ví dụ: yewtu.be):", style = MaterialTheme.typography.bodySmall)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = newInstanceInput,
+                        onValueChange = { newInstanceInput = it },
+                        placeholder = { Text("vd: invidious.nerdvpn.de") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newInstanceInput.isNotBlank()) {
+                            viewModel.addInvidiousInstance(newInstanceInput.trim())
+                            newInstanceInput = ""
+                            showAddInstanceDialog = false
+                        }
+                    }
+                ) {
+                    Text("Thêm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddInstanceDialog = false }) {
+                    Text("Hủy")
                 }
             }
         )

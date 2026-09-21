@@ -21,14 +21,53 @@ class InvidiousApiClient(
         coerceInputValues = true
     }
 
-    // Danh sách các instance Invidious public phổ biến và ổn định
-    private val instances = listOf(
-        "https://invidious.f5.si",
-        "https://inv.nadeko.net",
-        "https://invidious.nerdvpn.de",
-        "https://yt.drgnz.club",
-        "https://invidious.projectsegfau.lt"
-    )
+    companion object {
+        val DEFAULT_INSTANCES = listOf(
+            "https://inv.nadeko.net",
+            "https://invidious.nerdvpn.de",
+            "https://yewtu.be",
+            "https://invidious.projectsegfau.lt",
+            "https://inv.tux.pizza"
+        )
+    }
+
+    // Danh sách các instance Invidious public
+    val instances: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList(DEFAULT_INSTANCES)
+
+    fun addInstance(hostOrUrl: String): Boolean {
+        val formatted = if (hostOrUrl.startsWith("http://") || hostOrUrl.startsWith("https://")) {
+            hostOrUrl.trimEnd('/')
+        } else {
+            "https://${hostOrUrl.trim().trimEnd('/')}"
+        }
+        if (!instances.contains(formatted)) {
+            instances.add(formatted)
+            return true
+        }
+        return false
+    }
+
+    fun removeInstance(url: String) {
+        if (instances.size > 1) {
+            instances.remove(url)
+        }
+    }
+
+    suspend fun pingInstance(instanceUrl: String): Pair<Boolean, Long> = withContext(Dispatchers.IO) {
+        val start = System.currentTimeMillis()
+        try {
+            val request = Request.Builder()
+                .url("$instanceUrl/api/v1/stats")
+                .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+                .build()
+            client.newCall(request).execute().use { response ->
+                val elapsed = System.currentTimeMillis() - start
+                Pair(response.isSuccessful, elapsed)
+            }
+        } catch (e: Exception) {
+            Pair(false, -1L)
+        }
+    }
 
     private var currentInstanceIndex = 0
 

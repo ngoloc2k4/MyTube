@@ -20,17 +20,32 @@ class CascadingYouTubeRepository(
     private val fallbackRepository: YouTubeRepository = FakeYouTubeRepository()
 ) : YouTubeRepository {
 
-    private val streamPipeline: List<Pair<String, YouTubeRepository>> = listOf(
-        "NewPipe" to newPipeRepository,
-        "Invidious" to invidiousRepository,
-        "InnerTube" to innerTubeRepository
-    )
+    val invidiousClient: vn.lobie.mytube.data.remote.InvidiousApiClient?
+        get() = (invidiousRepository as? InvidiousYouTubeRepository)?.invidiousClient
 
-    private val browsePipeline: List<Pair<String, YouTubeRepository>> = listOf(
-        "Invidious" to invidiousRepository,
-        "NewPipe" to newPipeRepository,
-        "InnerTube" to innerTubeRepository
-    )
+    @Volatile
+    var enginePriority: List<String> = listOf("NewPipe", "Invidious", "InnerTube")
+
+    fun setEnginePriority(order: List<String>) {
+        if (order.isNotEmpty()) {
+            enginePriority = order
+            Log.d("CascadingRepo", "Engine priority updated: $order")
+        }
+    }
+
+    private fun getSortedStreamPipeline(): List<Pair<String, YouTubeRepository>> {
+        val map = mapOf(
+            "NewPipe" to newPipeRepository,
+            "Invidious" to invidiousRepository,
+            "InnerTube" to innerTubeRepository
+        )
+        val ordered = enginePriority.mapNotNull { name -> map[name]?.let { name to it } }
+        return if (ordered.isNotEmpty()) ordered else listOf("NewPipe" to newPipeRepository, "Invidious" to invidiousRepository, "InnerTube" to innerTubeRepository)
+    }
+
+    private fun getSortedBrowsePipeline(): List<Pair<String, YouTubeRepository>> {
+        return getSortedStreamPipeline()
+    }
 
     fun setRegion(region: String) {
         (invidiousRepository as? InvidiousYouTubeRepository)?.setRegion(region)
@@ -42,7 +57,7 @@ class CascadingYouTubeRepository(
     }
 
     override suspend fun getTrendingVideos(): Result<List<Video>> {
-        for ((name, repo) in browsePipeline) {
+        for ((name, repo) in getSortedBrowsePipeline()) {
             val result = repo.getTrendingVideos()
             val list = result.getOrNull()
             if (result.isSuccess && !list.isNullOrEmpty()) {
@@ -57,7 +72,7 @@ class CascadingYouTubeRepository(
     }
 
     override suspend fun search(query: String): Result<List<SearchResult>> {
-        for ((name, repo) in browsePipeline) {
+        for ((name, repo) in getSortedBrowsePipeline()) {
             val result = repo.search(query)
             val list = result.getOrNull()
             if (result.isSuccess && !list.isNullOrEmpty()) {
@@ -72,7 +87,7 @@ class CascadingYouTubeRepository(
     }
 
     override suspend fun getVideoDetails(videoId: String): Result<Video> {
-        for ((name, repo) in browsePipeline) {
+        for ((name, repo) in getSortedBrowsePipeline()) {
             val result = repo.getVideoDetails(videoId)
             val video = result.getOrNull()
             if (result.isSuccess && video != null) {
@@ -87,7 +102,7 @@ class CascadingYouTubeRepository(
     }
 
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
-        for ((name, repo) in streamPipeline) {
+        for ((name, repo) in getSortedStreamPipeline()) {
             try {
                 Log.d("CascadingRepo", "getStreamInfo($videoId): trying $name...")
                 val result = repo.getStreamInfo(videoId)

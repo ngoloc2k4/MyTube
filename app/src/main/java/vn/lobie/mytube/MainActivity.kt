@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                         LibraryViewModel(application)
                     }
                     val settingsViewModel: SettingsViewModel = viewModel {
-                        SettingsViewModel(application, settingsDataStore)
+                        SettingsViewModel(application, settingsDataStore, repository)
                     }
                     val musicViewModel: MusicViewModel = viewModel {
                         MusicViewModel(application, repository)
@@ -228,6 +228,7 @@ class MainActivity : ComponentActivity() {
                                         onSetAbLoopB = { playerViewModel.setAbLoopB() },
                                         onClearAbLoop = { playerViewModel.clearAbLoop() },
                                         onSetSubtitleFontSize = { playerViewModel.setSubtitleFontSize(it) },
+                                        onSetSubtitleBgColor = { playerViewModel.setSubtitleBgColor(it) },
                                         onMoveQueueItem = { from, to -> playerViewModel.moveQueueItem(from, to) },
                                         onClearQueue = { playerViewModel.clearQueue() }
                                     )

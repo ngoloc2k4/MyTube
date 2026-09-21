@@ -101,6 +101,7 @@ fun FullPlayer(
     onSetAbLoopB: () -> Unit = {},
     onClearAbLoop: () -> Unit = {},
     onSetSubtitleFontSize: (Float) -> Unit = {},
+    onSetSubtitleBgColor: (SubtitleBgColor) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
     onClearQueue: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -1703,6 +1704,8 @@ fun FullPlayer(
             isSubtitlesEnabled = uiState.isSubtitlesEnabled,
             currentFontSize = uiState.subtitleFontSize,
             onSetFontSize = onSetSubtitleFontSize,
+            currentBgColor = uiState.subtitleBgColor,
+            onSetBgColor = onSetSubtitleBgColor,
             onSelect = onSelectSubtitle,
             onDismiss = { showSubtitlesDialog = false }
         )
@@ -1728,6 +1731,8 @@ private fun SubtitleSelectionDialog(
     isSubtitlesEnabled: Boolean,
     currentFontSize: Float = 1.0f,
     onSetFontSize: (Float) -> Unit = {},
+    currentBgColor: SubtitleBgColor = SubtitleBgColor.BLACK_TRANSLUCENT,
+    onSetBgColor: (SubtitleBgColor) -> Unit = {},
     onSelect: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1819,6 +1824,32 @@ private fun SubtitleSelectionDialog(
                             selected = isCurrentSize,
                             onClick = { onSetFontSize(scale) },
                             label = { Text(label) }
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Text(
+                    text = "Màu nền phụ đề",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SubtitleBgColor.entries.forEach { bgOption ->
+                        val isCurrent = (currentBgColor == bgOption)
+                        FilterChip(
+                            selected = isCurrent,
+                            onClick = { onSetBgColor(bgOption) },
+                            label = { Text(bgOption.label) }
                         )
                     }
                 }
@@ -2199,6 +2230,15 @@ private fun VideoPlayerSurface(
                             ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                             ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
+                        val captionStyle = androidx.media3.ui.CaptionStyleCompat(
+                            uiState.subtitleBgColor.foregroundInt,
+                            uiState.subtitleBgColor.colorInt,
+                            android.graphics.Color.TRANSPARENT,
+                            androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            android.graphics.Color.BLACK,
+                            null
+                        )
+                        subtitleView?.setStyle(captionStyle)
                         subtitleView?.setFractionalTextSize(0.0533f * uiState.subtitleFontSize)
                     }
                 },
@@ -2208,6 +2248,15 @@ private fun VideoPlayerSurface(
                         ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
+                    val captionStyle = androidx.media3.ui.CaptionStyleCompat(
+                        uiState.subtitleBgColor.foregroundInt,
+                        uiState.subtitleBgColor.colorInt,
+                        android.graphics.Color.TRANSPARENT,
+                        androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                        android.graphics.Color.BLACK,
+                        null
+                    )
+                    view.subtitleView?.setStyle(captionStyle)
                     view.subtitleView?.setFractionalTextSize(0.0533f * uiState.subtitleFontSize)
                 },
                 modifier = Modifier.fillMaxSize()
@@ -2464,21 +2513,31 @@ private fun VideoPlayerSurface(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-                    val sourceName = uiState.currentSourceName
-                    if (!sourceName.isNullOrEmpty()) {
-                        AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    sourceName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            },
-                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                    val sourceName = uiState.currentSourceName ?: "Auto"
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.75f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(if (sourceName == "Fallback") Color.Red else Color(0xFF4CAF50))
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                "[$sourceName · ${uiState.selectedQuality}]",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
                     }
                     // Quality indicator chip
                     AssistChip(

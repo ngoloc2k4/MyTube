@@ -11,6 +11,13 @@ enum class ResizeMode {
     FIT, ZOOM
 }
 
+enum class SubtitleBgColor(val label: String, val colorInt: Int, val foregroundInt: Int) {
+    BLACK_TRANSLUCENT("Mờ", 0x80000000.toInt(), 0xFFFFFFFF.toInt()),
+    BLACK_SOLID("Đen", 0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
+    TRANSPARENT("Trong suốt", 0x00000000, 0xFFFFFFFF.toInt()),
+    YELLOW_ON_BLACK("Chữ vàng", 0xCC000000.toInt(), 0xFFFFD700.toInt())
+}
+
 data class PlayerUiState(
     val currentVideo: Video? = null,
     val isPlaying: Boolean = false,
@@ -48,6 +55,7 @@ data class PlayerUiState(
     val availableSubtitles: List<String> = emptyList(),
     val selectedSubtitle: String? = null,
     val subtitleFontSize: Float = 1.0f,
+    val subtitleBgColor: SubtitleBgColor = SubtitleBgColor.BLACK_TRANSLUCENT,
     val dislikesCount: Long? = null,
     val likesCount: Long? = null,
     val currentSourceName: String? = null,

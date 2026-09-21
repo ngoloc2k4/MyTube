@@ -784,6 +784,10 @@ class PlayerViewModel(
         _uiState.update { it.copy(subtitleFontSize = size) }
     }
 
+    fun setSubtitleBgColor(color: SubtitleBgColor) {
+        _uiState.update { it.copy(subtitleBgColor = color) }
+    }
+
     fun togglePlayPause() {
         player?.let { p ->
             if (p.isPlaying) {
