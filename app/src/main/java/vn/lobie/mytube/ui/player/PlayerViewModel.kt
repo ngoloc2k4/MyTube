@@ -200,6 +200,8 @@ class PlayerViewModel(
 
     private val sponsorBlockClient = vn.lobie.mytube.data.remote.sponsorblock.SponsorBlockClient()
     private var sponsorBlockJob: Job? = null
+    private val rydClient = vn.lobie.mytube.data.remote.ryd.ReturnYouTubeDislikeClient()
+    private var rydJob: Job? = null
     private var currentStreamInfo: StreamInfo? = null
     private var relatedVideosJob: Job? = null
 
@@ -214,6 +216,7 @@ class PlayerViewModel(
 
         relatedVideosJob?.cancel()
         sponsorBlockJob?.cancel()
+        rydJob?.cancel()
         val parsedChapters = ChapterParser.parse(video.description)
         _uiState.update {
             it.copy(
@@ -233,7 +236,10 @@ class PlayerViewModel(
                 abLoopEndMs = null,
                 isSubtitlesEnabled = false,
                 availableSubtitles = emptyList(),
-                selectedSubtitle = null
+                selectedSubtitle = null,
+                dislikesCount = null,
+                likesCount = null,
+                currentSourceName = null
             )
         }
 
@@ -242,6 +248,19 @@ class PlayerViewModel(
             val segments = sponsorBlockClient.getSegments(video.id)
             if (segments.isNotEmpty()) {
                 _uiState.update { it.copy(sponsorSegments = segments) }
+            }
+        }
+
+        // Fetch ReturnYouTubeDislike stats asynchronously
+        rydJob = viewModelScope.launch {
+            val ryd = rydClient.getDislikeInfo(video.id)
+            if (ryd != null) {
+                _uiState.update {
+                    it.copy(
+                        dislikesCount = ryd.dislikes,
+                        likesCount = if (ryd.likes > 0) ryd.likes else it.likesCount
+                    )
+                }
             }
         }
 
@@ -340,10 +359,12 @@ class PlayerViewModel(
                 ?.distinct() ?: emptyList()
             val availableQualities = if (qualities.isNotEmpty()) listOf("Auto") + qualities else listOf("Auto")
 
+            val sourceName = streamInfo?.source?.takeIf { it.isNotBlank() } ?: "Native"
             _uiState.update {
                 it.copy(
                     availableQualities = availableQualities,
-                    selectedQuality = "Auto"
+                    selectedQuality = "Auto",
+                    currentSourceName = sourceName
                 )
             }
 
@@ -500,6 +521,18 @@ class PlayerViewModel(
         val cur = state.currentVideo ?: return
         _uiState.update {
             it.copy(queue = listOf(cur), currentQueueIndex = 0)
+        }
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val state = _uiState.value
+        val q = state.queue.toMutableList()
+        if (fromIndex in q.indices && toIndex in q.indices && fromIndex != toIndex) {
+            val item = q.removeAt(fromIndex)
+            q.add(toIndex, item)
+            val currentVid = state.currentVideo
+            val newCurrentIndex = if (currentVid != null) q.indexOfFirst { it.id == currentVid.id }.coerceAtLeast(0) else 0
+            _uiState.update { it.copy(queue = q, currentQueueIndex = newCurrentIndex) }
         }
     }
 
@@ -745,6 +778,10 @@ class PlayerViewModel(
         }
 
         _uiState.update { it.copy(isSubtitlesEnabled = true, selectedSubtitle = label) }
+    }
+
+    fun setSubtitleFontSize(size: Float) {
+        _uiState.update { it.copy(subtitleFontSize = size) }
     }
 
     fun togglePlayPause() {

@@ -6,7 +6,8 @@ data class StreamInfo(
     val videoStreams: List<VideoStream> = emptyList(),
     val audioStreams: List<AudioStream> = emptyList(),
     val hlsUrl: String? = null,
-    val dashUrl: String? = null
+    val dashUrl: String? = null,
+    val source: String = ""
 )
 
 data class VideoStream(

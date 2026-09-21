@@ -47,6 +47,10 @@ data class PlayerUiState(
     val isSubtitlesEnabled: Boolean = false,
     val availableSubtitles: List<String> = emptyList(),
     val selectedSubtitle: String? = null,
+    val subtitleFontSize: Float = 1.0f,
+    val dislikesCount: Long? = null,
+    val likesCount: Long? = null,
+    val currentSourceName: String? = null,
     val errorMessage: String? = null
 ) {
     val progress: Float

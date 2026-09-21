@@ -28,8 +28,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material3.*
+import vn.lobie.mytube.ui.util.formatCompactNumber
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,6 +100,9 @@ fun FullPlayer(
     onSetAbLoopA: () -> Unit = {},
     onSetAbLoopB: () -> Unit = {},
     onClearAbLoop: () -> Unit = {},
+    onSetSubtitleFontSize: (Float) -> Unit = {},
+    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
+    onClearQueue: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -382,25 +387,60 @@ fun FullPlayer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         item {
-                            FilledTonalButton(
-                                onClick = onToggleLike,
+                            Surface(
                                 shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                )
+                                color = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.clip(CircleShape)
                             ) {
-                                Icon(
-                                    imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .clickable { onToggleLike() }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        val likeText = if (uiState.likesCount > 0) formatCompactNumber(uiState.likesCount) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(text = likeText, style = MaterialTheme.typography.labelMedium)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .height(18.dp)
+                                            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ThumbDown,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        if (uiState.dislikesCount > 0) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = formatCompactNumber(uiState.dislikesCount),
+                                                style = MaterialTheme.typography.labelMedium
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -747,7 +787,9 @@ fun FullPlayer(
                             isExpanded = isQueueExpanded,
                             onToggleExpand = { isQueueExpanded = !isQueueExpanded },
                             onSelectVideo = onSelectVideo,
-                            onRemoveFromQueue = onRemoveFromQueue
+                            onRemoveFromQueue = onRemoveFromQueue,
+                            onMoveQueueItem = onMoveQueueItem,
+                            onClearQueue = onClearQueue
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -971,25 +1013,60 @@ fun FullPlayer(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             item {
-                                FilledTonalButton(
-                                    onClick = onToggleLike,
+                                Surface(
                                     shape = CircleShape,
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                    )
+                                    color = if (uiState.isLiked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isLiked) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.clip(CircleShape)
                                 ) {
-                                    Icon(
-                                        imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
-                                        contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like),
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .clickable { onToggleLike() }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (uiState.isLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                                contentDescription = stringResource(if (uiState.isLiked) R.string.action_liked else R.string.action_like),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            val likeText = if (uiState.likesCount > 0) formatCompactNumber(uiState.likesCount) else if (uiState.isLiked) stringResource(R.string.action_liked) else stringResource(R.string.action_like)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(text = likeText, style = MaterialTheme.typography.labelMedium)
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .width(1.dp)
+                                                .height(18.dp)
+                                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                        )
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.ThumbDown,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            if (uiState.dislikesCount > 0) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = formatCompactNumber(uiState.dislikesCount),
+                                                    style = MaterialTheme.typography.labelMedium
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
@@ -1358,6 +1435,8 @@ fun FullPlayer(
                         onToggleExpand = { isQueueExpanded = !isQueueExpanded },
                         onSelectVideo = onSelectVideo,
                         onRemoveFromQueue = onRemoveFromQueue,
+                        onMoveQueueItem = onMoveQueueItem,
+                        onClearQueue = onClearQueue,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .widthIn(max = if (isTablet) 800.dp else androidx.compose.ui.unit.Dp.Unspecified)
@@ -1618,6 +1697,8 @@ fun FullPlayer(
             availableSubtitles = uiState.availableSubtitles,
             selectedSubtitle = uiState.selectedSubtitle,
             isSubtitlesEnabled = uiState.isSubtitlesEnabled,
+            currentFontSize = uiState.subtitleFontSize,
+            onSetFontSize = onSetSubtitleFontSize,
             onSelect = onSelectSubtitle,
             onDismiss = { showSubtitlesDialog = false }
         )
@@ -1641,6 +1722,8 @@ private fun SubtitleSelectionDialog(
     availableSubtitles: List<String>,
     selectedSubtitle: String?,
     isSubtitlesEnabled: Boolean,
+    currentFontSize: Float = 1.0f,
+    onSetFontSize: (Float) -> Unit = {},
     onSelect: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1702,6 +1785,37 @@ private fun SubtitleSelectionDialog(
                                 Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
                         }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Text(
+                    text = stringResource(R.string.subtitle_size),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val sizes = listOf(
+                        0.75f to stringResource(R.string.subtitle_size_small),
+                        1.0f to stringResource(R.string.subtitle_size_medium),
+                        1.35f to stringResource(R.string.subtitle_size_large)
+                    )
+                    sizes.forEach { (scale, label) ->
+                        val isCurrentSize = (currentFontSize == scale)
+                        FilterChip(
+                            selected = isCurrentSize,
+                            onClick = { onSetFontSize(scale) },
+                            label = { Text(label) }
+                        )
                     }
                 }
             }
@@ -2081,6 +2195,7 @@ private fun VideoPlayerSurface(
                             ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                             ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
+                        subtitleView?.setFractionalTextSize(0.0533f * uiState.subtitleFontSize)
                     }
                 },
                 update = { view ->
@@ -2089,6 +2204,7 @@ private fun VideoPlayerSurface(
                         ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
+                    view.subtitleView?.setFractionalTextSize(0.0533f * uiState.subtitleFontSize)
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -2345,6 +2461,21 @@ private fun VideoPlayerSurface(
                         )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
+                    if (uiState.currentSourceName.isNotEmpty()) {
+                        AssistChip(
+                            onClick = {},
+                            label = {
+                                Text(
+                                    uiState.currentSourceName,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     // Quality indicator chip
                     AssistChip(
                         onClick = onOpenQualityDialog,
@@ -2556,6 +2687,8 @@ fun VerticalPlaylistQueue(
     onToggleExpand: () -> Unit,
     onSelectVideo: (Video) -> Unit,
     onRemoveFromQueue: (Int) -> Unit = {},
+    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
+    onClearQueue: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -2612,15 +2745,30 @@ fun VerticalPlaylistQueue(
                     }
                 }
 
-                IconButton(
-                    onClick = onToggleExpand,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                        contentDescription = if (isExpanded) "Thu gọn" else "Mở rộng",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isExpanded) {
+                        TextButton(
+                            onClick = onClearQueue,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.clear_queue),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    IconButton(
+                        onClick = onToggleExpand,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                            contentDescription = if (isExpanded) "Thu gọn" else "Mở rộng",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -2651,17 +2799,45 @@ fun VerticalPlaylistQueue(
                                         isHighlighted = isCurrent
                                     )
                                 }
-                                if (!isCurrent) {
-                                    IconButton(
-                                        onClick = { onRemoveFromQueue(idx) },
-                                        modifier = Modifier.size(36.dp).padding(end = 4.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Xóa khỏi hàng đợi",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (idx > 0) {
+                                        IconButton(
+                                            onClick = { onMoveQueueItem(idx, idx - 1) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowUp,
+                                                contentDescription = stringResource(R.string.move_up),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                    if (idx < queue.size - 1) {
+                                        IconButton(
+                                            onClick = { onMoveQueueItem(idx, idx + 1) },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown,
+                                                contentDescription = stringResource(R.string.move_down),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                    if (!isCurrent) {
+                                        IconButton(
+                                            onClick = { onRemoveFromQueue(idx) },
+                                            modifier = Modifier.size(32.dp).padding(end = 4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Xóa khỏi hàng đợi",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }

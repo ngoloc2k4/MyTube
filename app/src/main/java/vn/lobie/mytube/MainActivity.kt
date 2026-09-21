@@ -226,7 +226,10 @@ class MainActivity : ComponentActivity() {
                                         onSelectSubtitle = { playerViewModel.selectSubtitle(it) },
                                         onSetAbLoopA = { playerViewModel.setAbLoopA() },
                                         onSetAbLoopB = { playerViewModel.setAbLoopB() },
-                                        onClearAbLoop = { playerViewModel.clearAbLoop() }
+                                        onClearAbLoop = { playerViewModel.clearAbLoop() },
+                                        onSetSubtitleFontSize = { playerViewModel.setSubtitleFontSize(it) },
+                                        onMoveQueueItem = { from, to -> playerViewModel.moveQueueItem(from, to) },
+                                        onClearQueue = { playerViewModel.clearQueue() }
                                     )
                                 }
                             }

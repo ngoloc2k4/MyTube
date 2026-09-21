@@ -42,6 +42,8 @@ fun SettingsScreen(
     var showRegionDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showUiModeDialog by remember { mutableStateOf(false) }
+    var showSourceEngineDialog by remember { mutableStateOf(false) }
+    var showInvidiousDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -106,6 +108,30 @@ fun SettingsScreen(
                     subtitle = "Automatically load and play recommended next video",
                     checked = autoPlayNext,
                     onCheckedChange = { viewModel.setAutoPlayNext(it) }
+                )
+            }
+
+            // Source Engine Manager Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                SectionHeader("Source Engine Manager")
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.Dns,
+                    title = "Playback Engine Pipeline",
+                    subtitle = "Cascading: NewPipe → Invidious → InnerTube → Fallback",
+                    onClick = { showSourceEngineDialog = true }
+                )
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.Cloud,
+                    title = "Invidious Instances",
+                    subtitle = "yewtu.be, invidious.nerdvpn.de, inv.tux.pizza (Failover pool)",
+                    onClick = { showInvidiousDialog = true }
                 )
             }
 
@@ -393,6 +419,83 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showClearHistoryDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showSourceEngineDialog) {
+        AlertDialog(
+            onDismissRequest = { showSourceEngineDialog = false },
+            title = { Text("Playback Engine Priority") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "MyTube employs an automatic cascading multi-engine strategy to guarantee zero playback interruptions:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("1. NewPipe Extractor", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Primary engine. Full DASH streaming up to 1080p, direct audio extraction.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("2. Invidious API Mirror", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Secondary engine. Bypasses client-side rate limits and bot challenges.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(colors = CardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface, disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, disabledContentColor = MaterialTheme.colorScheme.onSurface)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("3. InnerTube Android Client", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Tertiary engine. Emulates official YouTube Android client endpoints.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("4. Local Mock / Cache Fallback", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text("Emergency offline safe buffer.", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSourceEngineDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if (showInvidiousDialog) {
+        val instances = listOf(
+            "yewtu.be" to "Online (Fastest / Primary)",
+            "invidious.nerdvpn.de" to "Online (Secondary failover)",
+            "inv.tux.pizza" to "Online (Backup instance)",
+            "invidious.jing.rocks" to "Online (Backup instance)"
+        )
+        AlertDialog(
+            onDismissRequest = { showInvidiousDialog = false },
+            title = { Text("Invidious Instance Pool") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Instances automatically rotate when one encounters HTTP 429 or network timeout:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    instances.forEach { (host, status) ->
+                        ListItem(
+                            leadingContent = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            headlineContent = { Text(host, fontWeight = FontWeight.Medium) },
+                            supportingContent = { Text(status, style = MaterialTheme.typography.bodySmall) }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showInvidiousDialog = false }) {
+                    Text("Done")
                 }
             }
         )

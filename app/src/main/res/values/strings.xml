@@ -100,4 +100,26 @@
     <string name="not_set">Not set</string>
     <string name="current_time">Current position</string>
     <string name="clear_loop">Clear loop</string>
+    <string name="filter_title">Filter results</string>
+    <string name="filter_sort_by">Sort by</string>
+    <string name="filter_relevance">Relevance</string>
+    <string name="filter_upload_date">Upload date</string>
+    <string name="filter_view_count">View count</string>
+    <string name="filter_duration">Duration</string>
+    <string name="filter_duration_all">All durations</string>
+    <string name="filter_duration_short">Short (&lt; 4 minutes)</string>
+    <string name="filter_duration_medium">Medium (4 - 20 minutes)</string>
+    <string name="filter_duration_long">Long (&gt; 20 minutes)</string>
+    <string name="apply_filter">Apply</string>
+    <string name="source_engine">Engine</string>
+    <string name="source_manager_title">Source Engine Manager</string>
+    <string name="source_invidious_instances">Invidious Instances</string>
+    <string name="source_active_pipeline">Playback Engine Priority</string>
+    <string name="subtitle_size">Subtitle size</string>
+    <string name="subtitle_size_small">Small</string>
+    <string name="subtitle_size_medium">Medium</string>
+    <string name="subtitle_size_large">Large</string>
+    <string name="clear_queue">Clear queue</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
 </resources>

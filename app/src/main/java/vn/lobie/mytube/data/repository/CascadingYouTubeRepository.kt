@@ -94,7 +94,7 @@ class CascadingYouTubeRepository(
                 val info = result.getOrNull()
                 if (result.isSuccess && info != null && (info.videoStreams.isNotEmpty() || !info.hlsUrl.isNullOrEmpty() || info.audioStreams.isNotEmpty())) {
                     Log.d("CascadingRepo", "getStreamInfo($videoId): succeeded using $name (hls=${!info.hlsUrl.isNullOrEmpty()}, videoStreams=${info.videoStreams.size}, audioStreams=${info.audioStreams.size})")
-                    return result
+                    return Result.success(info.copy(source = name))
                 } else {
                     Log.w("CascadingRepo", "getStreamInfo($videoId): $name returned no playable streams or failed -> ${result.exceptionOrNull()?.message}")
                 }
@@ -103,6 +103,6 @@ class CascadingYouTubeRepository(
             }
         }
         Log.w("CascadingRepo", "getStreamInfo($videoId): all engines failed, falling back to sample stream")
-        return fallbackRepository.getStreamInfo(videoId)
+        return fallbackRepository.getStreamInfo(videoId).map { it.copy(source = "Fallback") }
     }
 }

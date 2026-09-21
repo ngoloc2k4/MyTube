@@ -100,4 +100,26 @@
     <string name="not_set">Chưa đặt</string>
     <string name="current_time">Vị trí hiện tại</string>
     <string name="clear_loop">Xoá mốc lặp</string>
+    <string name="filter_title">Bộ lọc tìm kiếm</string>
+    <string name="filter_sort_by">Sắp xếp theo</string>
+    <string name="filter_relevance">Phù hợp nhất</string>
+    <string name="filter_upload_date">Ngày tải lên</string>
+    <string name="filter_view_count">Lượt xem</string>
+    <string name="filter_duration">Thời lượng</string>
+    <string name="filter_duration_all">Tất cả thời lượng</string>
+    <string name="filter_duration_short">Ngắn (&lt; 4 phút)</string>
+    <string name="filter_duration_medium">Vừa (4 - 20 phút)</string>
+    <string name="filter_duration_long">Dài (&gt; 20 phút)</string>
+    <string name="apply_filter">Áp dụng</string>
+    <string name="source_engine">Nguồn phát</string>
+    <string name="source_manager_title">Quản lý nguồn phát (Source Manager)</string>
+    <string name="source_invidious_instances">Máy chủ Invidious</string>
+    <string name="source_active_pipeline">Thứ tự ưu tiên nguồn</string>
+    <string name="subtitle_size">Cỡ chữ phụ đề</string>
+    <string name="subtitle_size_small">Nhỏ</string>
+    <string name="subtitle_size_medium">Vừa</string>
+    <string name="subtitle_size_large">Lớn</string>
+    <string name="clear_queue">Xóa hàng đợi</string>
+    <string name="move_up">Chuyển lên</string>
+    <string name="move_down">Chuyển xuống</string>
 </resources>

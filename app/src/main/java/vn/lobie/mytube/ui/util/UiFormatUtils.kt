@@ -25,3 +25,12 @@ fun formatDuration(durationSeconds: Long): String {
         "%d:%02d".format(minutes, seconds)
     }
 }
+
+fun formatCompactNumber(count: Long): String {
+    return when {
+        count >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0)
+        count >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", count / 1_000.0)
+        count > 0 -> "$count"
+        else -> ""
+    }
+}

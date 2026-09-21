@@ -16,9 +16,28 @@ import kotlinx.coroutines.launch
 import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 import vn.lobie.mytube.data.repository.CascadingYouTubeRepository
+import vn.lobie.mytube.R
 import vn.lobie.mytube.domain.model.SearchResult
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.domain.repository.YouTubeRepository
+
+enum class SearchSort(val titleRes: Int) {
+    RELEVANCE(R.string.filter_relevance),
+    UPLOAD_DATE(R.string.filter_upload_date),
+    VIEW_COUNT(R.string.filter_view_count)
+}
+
+enum class SearchDuration(val titleRes: Int) {
+    ALL(R.string.filter_duration_all),
+    SHORT(R.string.filter_duration_short),
+    MEDIUM(R.string.filter_duration_medium),
+    LONG(R.string.filter_duration_long)
+}
+
+data class SearchFilter(
+    val sort: SearchSort = SearchSort.RELEVANCE,
+    val duration: SearchDuration = SearchDuration.ALL
+)
 
 class HomeViewModel(
     private val repository: YouTubeRepository,
@@ -28,6 +47,13 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _searchFilter = MutableStateFlow(SearchFilter())
+    val searchFilter: StateFlow<SearchFilter> = _searchFilter.asStateFlow()
+
+    companion object {
+        private var cachedHomeVideos: List<Video> = emptyList()
+    }
 
     val watchProgressMap: StateFlow<Map<String, Float>> = (database?.watchHistoryDao()?.getAll() ?: flowOf(emptyList()))
         .map { list ->
@@ -54,7 +80,14 @@ class HomeViewModel(
 
     fun loadRecommendedVideos() {
         viewModelScope.launch {
-            _uiState.value = HomeUiState.Loading
+            if (cachedHomeVideos.isNotEmpty()) {
+                _uiState.value = HomeUiState.Success(
+                    videos = cachedHomeVideos,
+                    selectedCategory = VideoCategory.ALL
+                )
+            } else {
+                _uiState.value = HomeUiState.Loading
+            }
 
             try {
                 // 1. Fetch base trending videos
@@ -138,8 +171,14 @@ class HomeViewModel(
                     .distinctBy { it.id }
 
                 if (deduplicatedVideos.isNotEmpty()) {
+                    cachedHomeVideos = deduplicatedVideos
                     _uiState.value = HomeUiState.Success(
                         videos = deduplicatedVideos,
+                        selectedCategory = VideoCategory.ALL
+                    )
+                } else if (cachedHomeVideos.isNotEmpty()) {
+                    _uiState.value = HomeUiState.Success(
+                        videos = cachedHomeVideos,
                         selectedCategory = VideoCategory.ALL
                     )
                 } else if (trendingResult.isFailure) {
@@ -154,7 +193,14 @@ class HomeViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error loading recommended feed", e)
-                _uiState.value = HomeUiState.Error(e.localizedMessage ?: "Failed to load feed")
+                if (cachedHomeVideos.isNotEmpty()) {
+                    _uiState.value = HomeUiState.Success(
+                        videos = cachedHomeVideos,
+                        selectedCategory = VideoCategory.ALL
+                    )
+                } else {
+                    _uiState.value = HomeUiState.Error(e.localizedMessage ?: "Failed to load feed")
+                }
             }
         }
     }
@@ -203,6 +249,47 @@ class HomeViewModel(
         _uiState.value = current.copy(searchQuery = query)
     }
 
+    fun setFilter(filter: SearchFilter) {
+        _searchFilter.value = filter
+        val current = _uiState.value as? HomeUiState.Success ?: return
+        if (current.searchQuery.isNotBlank()) {
+            performSearch(current.searchQuery)
+        }
+    }
+
+    private fun applyFilters(results: List<SearchResult>): List<SearchResult> {
+        val filter = _searchFilter.value
+        var filtered = results
+
+        // Duration filter
+        if (filter.duration != SearchDuration.ALL) {
+            filtered = filtered.filter { item ->
+                if (item is SearchResult.VideoItem) {
+                    val sec = item.video.durationSeconds
+                    when (filter.duration) {
+                        SearchDuration.SHORT -> sec in 1..240
+                        SearchDuration.MEDIUM -> sec in 241..1200
+                        SearchDuration.LONG -> sec > 1200
+                        else -> true
+                    }
+                } else true
+            }
+        }
+
+        // Sort filter
+        if (filter.sort == SearchSort.VIEW_COUNT) {
+            filtered = filtered.sortedByDescending {
+                if (it is SearchResult.VideoItem) it.video.viewCount else 0L
+            }
+        } else if (filter.sort == SearchSort.UPLOAD_DATE) {
+            filtered = filtered.sortedByDescending {
+                if (it is SearchResult.VideoItem) it.video.publishedDate else ""
+            }
+        }
+
+        return filtered
+    }
+
     fun performSearch(query: String) {
         if (query.isBlank()) {
             loadRecommendedVideos()
@@ -219,13 +306,15 @@ class HomeViewModel(
 
             repository.search(query)
                 .onSuccess { results ->
-                    val filteredResults = results
+                    val rawFiltered = results
                         .filterNot { item ->
                             item is SearchResult.VideoItem && hiddenIds.contains(item.video.id)
                         }
                         .distinctBy { item ->
                             if (item is SearchResult.VideoItem) item.video.id else item.hashCode().toString()
                         }
+
+                    val filteredResults = applyFilters(rawFiltered)
 
                     val base = current ?: HomeUiState.Success(videos = emptyList())
                     _uiState.value = base.copy(
