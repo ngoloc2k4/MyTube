@@ -93,6 +93,11 @@ fun FullPlayer(
     onUnskipSponsor: () -> Unit = {},
     onDismissSponsorNotice: () -> Unit = {},
     onSetDoubleTapSeekSeconds: (Int) -> Unit = {},
+    onToggleSubtitles: () -> Unit = {},
+    onSelectSubtitle: (String?) -> Unit = {},
+    onSetAbLoopA: () -> Unit = {},
+    onSetAbLoopB: () -> Unit = {},
+    onClearAbLoop: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -100,6 +105,8 @@ fun FullPlayer(
     val context = LocalContext.current
     var isSaved by remember(video.id) { mutableStateOf(false) }
     var showSeekDurationDialog by remember { mutableStateOf(false) }
+    var showSubtitlesDialog by remember { mutableStateOf(false) }
+    var showAbLoopDialog by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -162,6 +169,7 @@ fun FullPlayer(
                     onToggleResizeMode = onToggleResizeMode,
                     onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                     onOpenChaptersDialog = { showChaptersDialog = true },
+                    onOpenSubtitlesDialog = { showSubtitlesDialog = true },
                     onUnskipSponsor = onUnskipSponsor,
                     onDismissSponsorNotice = onDismissSponsorNotice,
                     modifier = Modifier.fillMaxSize()
@@ -237,6 +245,7 @@ fun FullPlayer(
                         onToggleResizeMode = onToggleResizeMode,
                         onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                         onOpenChaptersDialog = { showChaptersDialog = true },
+                        onOpenSubtitlesDialog = { showSubtitlesDialog = true },
                         onUnskipSponsor = onUnskipSponsor,
                         onDismissSponsorNotice = onDismissSponsorNotice,
                         modifier = Modifier
@@ -637,6 +646,59 @@ fun FullPlayer(
                                 )
                             }
                         }
+
+                        item {
+                            FilledTonalButton(
+                                onClick = { showSubtitlesDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ClosedCaption,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (uiState.isSubtitlesEnabled) (uiState.selectedSubtitle ?: stringResource(R.string.subtitles_on)) else stringResource(R.string.subtitles_off),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        item {
+                            val isLoopActive = uiState.abLoopStartMs != null || uiState.abLoopEndMs != null
+                            FilledTonalButton(
+                                onClick = { showAbLoopDialog = true },
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = if (isLoopActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    contentColor = if (isLoopActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Repeat,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (uiState.abLoopStartMs != null && uiState.abLoopEndMs != null) {
+                                        "Loop ${formatTime(uiState.abLoopStartMs)} - ${formatTime(uiState.abLoopEndMs)}"
+                                    } else if (uiState.abLoopStartMs != null) {
+                                        "A: ${formatTime(uiState.abLoopStartMs)}"
+                                    } else {
+                                        stringResource(R.string.ab_loop_title)
+                                    },
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
                     }
 
                     // Description Box
@@ -766,6 +828,7 @@ fun FullPlayer(
                         onToggleResizeMode = onToggleResizeMode,
                         onOpenSleepTimerDialog = { showSleepTimerDialog = true },
                         onOpenChaptersDialog = { showChaptersDialog = true },
+                        onOpenSubtitlesDialog = { showSubtitlesDialog = true },
                         onUnskipSponsor = onUnskipSponsor,
                         onDismissSponsorNotice = onDismissSponsorNotice,
                         modifier = Modifier
@@ -1168,29 +1231,82 @@ fun FullPlayer(
                                 }
                             }
 
-                            item {
-                                FilledTonalButton(
-                                    onClick = { showSeekDurationDialog = true },
-                                    shape = CircleShape,
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DoubleArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "${uiState.doubleTapSeekSeconds}s",
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
+                                item {
+                                    FilledTonalButton(
+                                        onClick = { showSeekDurationDialog = true },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DoubleArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "${uiState.doubleTapSeekSeconds}s",
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                    }
+                                }
+
+                                item {
+                                    FilledTonalButton(
+                                        onClick = { showSubtitlesDialog = true },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            contentColor = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ClosedCaption,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (uiState.isSubtitlesEnabled) (uiState.selectedSubtitle ?: stringResource(R.string.subtitles_on)) else stringResource(R.string.subtitles_off),
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                    }
+                                }
+
+                                item {
+                                    val isLoopActive = uiState.abLoopStartMs != null || uiState.abLoopEndMs != null
+                                    FilledTonalButton(
+                                        onClick = { showAbLoopDialog = true },
+                                        shape = CircleShape,
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = if (isLoopActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                            contentColor = if (isLoopActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Repeat,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (uiState.abLoopStartMs != null && uiState.abLoopEndMs != null) {
+                                                "Loop ${formatTime(uiState.abLoopStartMs)} - ${formatTime(uiState.abLoopEndMs)}"
+                                            } else if (uiState.abLoopStartMs != null) {
+                                                "A: ${formatTime(uiState.abLoopStartMs)}"
+                                            } else {
+                                                stringResource(R.string.ab_loop_title)
+                                            },
+                                            style = MaterialTheme.typography.labelMedium
+                                        )
+                                    }
                                 }
                             }
-                        }
 
                         // Expandable Description Box
                         if (video.description.isNotEmpty()) {
@@ -1496,6 +1612,191 @@ fun FullPlayer(
             onDismiss = { showSeekDurationDialog = false }
         )
     }
+
+    if (showSubtitlesDialog) {
+        SubtitleSelectionDialog(
+            availableSubtitles = uiState.availableSubtitles,
+            selectedSubtitle = uiState.selectedSubtitle,
+            isSubtitlesEnabled = uiState.isSubtitlesEnabled,
+            onSelect = onSelectSubtitle,
+            onDismiss = { showSubtitlesDialog = false }
+        )
+    }
+
+    if (showAbLoopDialog) {
+        AbLoopDialog(
+            startMs = uiState.abLoopStartMs,
+            endMs = uiState.abLoopEndMs,
+            currentPositionMs = uiState.currentPositionMs,
+            onSetA = onSetAbLoopA,
+            onSetB = onSetAbLoopB,
+            onClear = onClearAbLoop,
+            onDismiss = { showAbLoopDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun SubtitleSelectionDialog(
+    availableSubtitles: List<String>,
+    selectedSubtitle: String?,
+    isSubtitlesEnabled: Boolean,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.subtitles_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onSelect(null)
+                            onDismiss()
+                        }
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = stringResource(R.string.subtitles_off),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (!isSubtitlesEnabled) FontWeight.Bold else FontWeight.Normal,
+                        color = if (!isSubtitlesEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (!isSubtitlesEnabled) {
+                        Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                if (availableSubtitles.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.no_subtitles_available),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                } else {
+                    availableSubtitles.forEach { sub ->
+                        val isSelected = isSubtitlesEnabled && (selectedSubtitle == sub)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onSelect(sub)
+                                    onDismiss()
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = sub,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (isSelected) {
+                                Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.dismiss))
+            }
+        }
+    )
+}
+
+@Composable
+private fun AbLoopDialog(
+    startMs: Long?,
+    endMs: Long?,
+    currentPositionMs: Long,
+    onSetA: () -> Unit,
+    onSetB: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ab_loop_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = stringResource(R.string.ab_loop_instruction),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = "${stringResource(R.string.current_time)}: ${formatTime(currentPositionMs)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = stringResource(R.string.point_a_label), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = if (startMs != null) formatTime(startMs) else stringResource(R.string.not_set),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Button(onClick = onSetA) {
+                        Text(stringResource(R.string.set_point_a))
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = stringResource(R.string.point_b_label), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = if (endMs != null) formatTime(endMs) else stringResource(R.string.not_set),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Button(
+                        onClick = onSetB,
+                        enabled = startMs != null && currentPositionMs > startMs
+                    ) {
+                        Text(stringResource(R.string.set_point_b))
+                    }
+                }
+
+                if (startMs != null || endMs != null) {
+                    OutlinedButton(
+                        onClick = onClear,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.clear_loop))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.dismiss))
+            }
+        }
+    )
 }
 
 @Composable
@@ -1577,6 +1878,7 @@ private fun VideoPlayerSurface(
     onToggleResizeMode: () -> Unit = {},
     onOpenSleepTimerDialog: () -> Unit = {},
     onOpenChaptersDialog: () -> Unit = {},
+    onOpenSubtitlesDialog: () -> Unit = {},
     onUnskipSponsor: () -> Unit = {},
     onDismissSponsorNotice: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -2031,6 +2333,16 @@ private fun VideoPlayerSurface(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // Subtitles (CC) button
+                    IconButton(onClick = onOpenSubtitlesDialog) {
+                        Icon(
+                            imageVector = Icons.Default.ClosedCaption,
+                            contentDescription = stringResource(R.string.subtitles),
+                            tint = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                     // Quality indicator chip

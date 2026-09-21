@@ -221,7 +221,12 @@ class MainActivity : ComponentActivity() {
                                         onToggleSponsorBlock = { playerViewModel.toggleSponsorBlock() },
                                         onUnskipSponsor = { playerViewModel.unskipLastSegment() },
                                         onDismissSponsorNotice = { playerViewModel.dismissSkippedNotice() },
-                                        onSetDoubleTapSeekSeconds = { playerViewModel.setDoubleTapSeekSeconds(it) }
+                                        onSetDoubleTapSeekSeconds = { playerViewModel.setDoubleTapSeekSeconds(it) },
+                                        onToggleSubtitles = { playerViewModel.toggleSubtitles() },
+                                        onSelectSubtitle = { playerViewModel.selectSubtitle(it) },
+                                        onSetAbLoopA = { playerViewModel.setAbLoopA() },
+                                        onSetAbLoopB = { playerViewModel.setAbLoopB() },
+                                        onClearAbLoop = { playerViewModel.clearAbLoop() }
                                     )
                                 }
                             }

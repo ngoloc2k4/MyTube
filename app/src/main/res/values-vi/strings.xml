@@ -86,4 +86,18 @@
     <string name="seconds_10">10 giây</string>
     <string name="seconds_15">15 giây</string>
     <string name="seconds_30">30 giây</string>
+    <string name="subtitles">Phụ đề</string>
+    <string name="subtitles_title">Phụ đề (CC)</string>
+    <string name="subtitles_off">Phụ đề: Tắt</string>
+    <string name="subtitles_on">Phụ đề: Bật</string>
+    <string name="no_subtitles_available">Không tìm thấy phụ đề</string>
+    <string name="ab_loop_title">Lặp A-B</string>
+    <string name="ab_loop_instruction">Đặt điểm A (bắt đầu) và điểm B (kết thúc) để lặp lại một đoạn video liên tục.</string>
+    <string name="set_point_a">Đặt mốc A</string>
+    <string name="set_point_b">Đặt mốc B</string>
+    <string name="point_a_label">Mốc A (Bắt đầu)</string>
+    <string name="point_b_label">Mốc B (Kết thúc)</string>
+    <string name="not_set">Chưa đặt</string>
+    <string name="current_time">Vị trí hiện tại</string>
+    <string name="clear_loop">Xoá mốc lặp</string>
 </resources>

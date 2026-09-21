@@ -108,6 +108,10 @@ class PlayerViewModel(
             }
         }
 
+        override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+            updateAvailableTracks()
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             android.util.Log.e("PlayerViewModel", "Playback error encountered: ${error.errorCodeName} (${error.errorCode})", error)
             val currentVid = _uiState.value.currentVideo
@@ -224,7 +228,12 @@ class PlayerViewModel(
                 chapters = parsedChapters,
                 currentChapter = parsedChapters.firstOrNull(),
                 sponsorSegments = emptyList(),
-                lastSkippedSegment = null
+                lastSkippedSegment = null,
+                abLoopStartMs = null,
+                abLoopEndMs = null,
+                isSubtitlesEnabled = false,
+                availableSubtitles = emptyList(),
+                selectedSubtitle = null
             )
         }
 
@@ -630,6 +639,114 @@ class PlayerViewModel(
         _uiState.update { it.copy(doubleTapSeekSeconds = seconds) }
     }
 
+    fun setAbLoopA() {
+        val pos = player?.currentPosition ?: 0L
+        _uiState.update { it.copy(abLoopStartMs = pos) }
+    }
+
+    fun setAbLoopB() {
+        val pos = player?.currentPosition ?: 0L
+        val start = _uiState.value.abLoopStartMs ?: 0L
+        if (pos > start) {
+            _uiState.update { it.copy(abLoopEndMs = pos) }
+        }
+    }
+
+    fun clearAbLoop() {
+        _uiState.update { it.copy(abLoopStartMs = null, abLoopEndMs = null) }
+    }
+
+    @OptIn(UnstableApi::class)
+    fun updateAvailableTracks() {
+        val p = player ?: return
+        val currentTracks = p.currentTracks
+        val subtitleLabels = mutableListOf<String>()
+        var isSubEnabled = false
+        var activeSubLabel: String? = null
+
+        for (group in currentTracks.groups) {
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    val label = format.label ?: format.language ?: "Track ${i + 1}"
+                    subtitleLabels.add(label)
+                    if (group.isTrackSelected(i)) {
+                        isSubEnabled = true
+                        activeSubLabel = label
+                    }
+                }
+            }
+        }
+        val distinctSubs = subtitleLabels.distinct()
+        _uiState.update {
+            it.copy(
+                availableSubtitles = distinctSubs,
+                isSubtitlesEnabled = isSubEnabled,
+                selectedSubtitle = activeSubLabel
+            )
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    fun toggleSubtitles() {
+        val p = player ?: return
+        val currentlyEnabled = _uiState.value.isSubtitlesEnabled
+        val newEnabled = !currentlyEnabled
+        p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !newEnabled)
+            .build()
+        _uiState.update { it.copy(isSubtitlesEnabled = newEnabled) }
+    }
+
+    @OptIn(UnstableApi::class)
+    fun selectSubtitle(label: String?) {
+        val p = player ?: return
+        if (label == null || label == "Off" || label == "Tắt") {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+            _uiState.update { it.copy(isSubtitlesEnabled = false, selectedSubtitle = null) }
+            return
+        }
+
+        val currentTracks = p.currentTracks
+        var foundGroup: androidx.media3.common.Tracks.Group? = null
+        var foundIndex: Int = -1
+
+        for (group in currentTracks.groups) {
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    val trackLabel = format.label ?: format.language ?: "Track ${i + 1}"
+                    if (trackLabel.equals(label, ignoreCase = true)) {
+                        foundGroup = group
+                        foundIndex = i
+                        break
+                    }
+                }
+            }
+            if (foundGroup != null) break
+        }
+
+        if (foundGroup != null && foundIndex != -1) {
+            val override = androidx.media3.common.TrackSelectionOverride(
+                foundGroup.mediaTrackGroup,
+                listOf(foundIndex)
+            )
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(override)
+                .build()
+        } else {
+            p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setPreferredTextLanguage(label.lowercase())
+                .build()
+        }
+
+        _uiState.update { it.copy(isSubtitlesEnabled = true, selectedSubtitle = label) }
+    }
+
     fun togglePlayPause() {
         player?.let { p ->
             if (p.isPlaying) {
@@ -740,6 +857,13 @@ class PlayerViewModel(
                     val curChapters = _uiState.value.chapters
                     val activeChapter = ChapterParser.getCurrentChapter(curChapters, pos)
                     val state = _uiState.value
+
+                    // A-B Loop wrap-around
+                    val loopStart = state.abLoopStartMs
+                    val loopEnd = state.abLoopEndMs
+                    if (loopStart != null && loopEnd != null && loopEnd > loopStart && pos >= loopEnd) {
+                        p.seekTo(loopStart)
+                    }
 
                     // SponsorBlock automatic segment skip
                     var skippedSeg: vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment? = null

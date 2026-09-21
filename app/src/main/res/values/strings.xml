@@ -86,4 +86,18 @@
     <string name="seconds_10">10 seconds</string>
     <string name="seconds_15">15 seconds</string>
     <string name="seconds_30">30 seconds</string>
+    <string name="subtitles">Subtitles</string>
+    <string name="subtitles_title">Subtitles &amp; Captions</string>
+    <string name="subtitles_off">Subtitles: Off</string>
+    <string name="subtitles_on">Subtitles: On</string>
+    <string name="no_subtitles_available">No subtitle tracks found</string>
+    <string name="ab_loop_title">A-B Loop</string>
+    <string name="ab_loop_instruction">Set point A (start) and point B (end) to continuously loop a specific section of the video.</string>
+    <string name="set_point_a">Set Point A</string>
+    <string name="set_point_b">Set Point B</string>
+    <string name="point_a_label">Point A (Start)</string>
+    <string name="point_b_label">Point B (End)</string>
+    <string name="not_set">Not set</string>
+    <string name="current_time">Current position</string>
+    <string name="clear_loop">Clear loop</string>
 </resources>

@@ -42,6 +42,11 @@ data class PlayerUiState(
     val sponsorSegments: List<vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment> = emptyList(),
     val lastSkippedSegment: vn.lobie.mytube.data.remote.sponsorblock.SponsorSegment? = null,
     val doubleTapSeekSeconds: Int = 10,
+    val abLoopStartMs: Long? = null,
+    val abLoopEndMs: Long? = null,
+    val isSubtitlesEnabled: Boolean = false,
+    val availableSubtitles: List<String> = emptyList(),
+    val selectedSubtitle: String? = null,
     val errorMessage: String? = null
 ) {
     val progress: Float
