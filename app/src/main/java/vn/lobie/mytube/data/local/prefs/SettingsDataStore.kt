@@ -29,7 +29,7 @@ class SettingsDataStore(private val context: Context) {
         val UI_MODE = stringPreferencesKey("ui_mode")
         val SPONSOR_BLOCK_ENABLED = booleanPreferencesKey("sponsor_block_enabled")
         val RETURN_DISLIKE_ENABLED = booleanPreferencesKey("return_dislike_enabled")
-        val INVIDIOUS_INSTANCES = stringSetPreferencesKey("invidious_instances")
+        val INVIDIOUS_INSTANCES = stringPreferencesKey("invidious_instances")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -170,17 +170,17 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val invidiousInstances: Flow<List<String>> = context.dataStore.data.map { preferences ->
-        val set = preferences[INVIDIOUS_INSTANCES]
-        if (set.isNullOrEmpty()) {
+        val raw = preferences[INVIDIOUS_INSTANCES]
+        if (raw.isNullOrBlank()) {
             vn.lobie.mytube.data.remote.InvidiousApiClient.DEFAULT_INSTANCES
         } else {
-            set.toList()
+            raw.split("\n").filter { it.isNotBlank() }
         }
     }
 
     suspend fun setInvidiousInstances(instances: List<String>) {
         context.dataStore.edit { preferences ->
-            preferences[INVIDIOUS_INSTANCES] = instances.toSet()
+            preferences[INVIDIOUS_INSTANCES] = instances.joinToString("\n")
         }
     }
 }

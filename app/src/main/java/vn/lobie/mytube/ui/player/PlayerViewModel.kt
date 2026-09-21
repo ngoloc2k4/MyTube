@@ -934,7 +934,7 @@ class PlayerViewModel(
                 vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).startDownload(
                     video = video,
                     streamUrl = url,
-                    quality = stream.videoStreams.firstOrNull()?.quality ?: "720p"
+                    quality = stream?.videoStreams?.firstOrNull()?.quality ?: "720p"
                 )
             }
         }
