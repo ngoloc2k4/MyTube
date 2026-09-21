@@ -54,9 +54,12 @@ fun SettingsScreen(
     val isPinging by viewModel.isPinging.collectAsState()
     val sponsorBlockEnabled by viewModel.sponsorBlockEnabled.collectAsState()
     val returnDislikeEnabled by viewModel.returnDislikeEnabled.collectAsState()
+    val audioNormalizationEnabled by viewModel.audioNormalizationEnabled.collectAsState()
+    val crossfadeDurationSeconds by viewModel.crossfadeDurationSeconds.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
+    var showCrossfadeDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCacheDialog by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
@@ -132,6 +135,26 @@ fun SettingsScreen(
                     subtitle = "Automatically load and play recommended next video",
                     checked = autoPlayNext,
                     onCheckedChange = { viewModel.setAutoPlayNext(it) }
+                )
+            }
+
+            item {
+                SettingSwitchItem(
+                    icon = Icons.Default.GraphicEq,
+                    title = "Chuẩn hóa âm lượng (Audio Normalization)",
+                    subtitle = "Cân bằng độ lớn âm thanh giữa các bài hát khác nhau, tránh bài quá nhỏ hoặc quá to",
+                    checked = audioNormalizationEnabled,
+                    onCheckedChange = { viewModel.setAudioNormalizationEnabled(it) }
+                )
+            }
+
+            item {
+                val crossfadeLabel = if (crossfadeDurationSeconds > 0) "${crossfadeDurationSeconds}s" else "Tắt"
+                SettingClickableItem(
+                    icon = Icons.Default.Tune,
+                    title = "Crossfade chuyển bài",
+                    subtitle = "$crossfadeLabel (Chuyển tiếp âm thanh mượt mà giữa các video)",
+                    onClick = { showCrossfadeDialog = true }
                 )
             }
 
@@ -363,6 +386,25 @@ fun SettingsScreen(
                 showSpeedDialog = false
             },
             onDismiss = { showSpeedDialog = false }
+        )
+    }
+
+    if (showCrossfadeDialog) {
+        val crossfadeOptions = listOf(
+            0 to "Tắt (Mặc định)",
+            3 to "3 giây",
+            5 to "5 giây",
+            8 to "8 giây"
+        )
+        OptionDialog(
+            title = "Thời gian Crossfade",
+            options = crossfadeOptions,
+            currentValue = crossfadeDurationSeconds,
+            onSelect = {
+                viewModel.setCrossfadeDurationSeconds(it)
+                showCrossfadeDialog = false
+            },
+            onDismiss = { showCrossfadeDialog = false }
         )
     }
 

@@ -44,22 +44,34 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --build-cache --parallel --stacktrace
 
-      - name: Locate and prepare arm64-v8a APK
+      - name: Locate and prepare multi-ABI APKs
         run: |
           mkdir -p output-apk
-          APK_FILE=$(find app/build/outputs/apk/ -type f -name "*arm64-v8a*.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then
-            echo "Lưu ý: Không tìm thấy tên có chứa arm64-v8a, tìm file apk bất kỳ..."
-            APK_FILE=$(find app/build/outputs/apk/ -type f -name "*.apk" | head -n 1)
+          ARM64_FILE=$(find app/build/outputs/apk/ -type f -name "*arm64-v8a*.apk" | head -n 1)
+          if [ -n "$ARM64_FILE" ]; then
+            echo "Found arm64-v8a APK: $ARM64_FILE"
+            cp "$ARM64_FILE" output-apk/MyTube-arm64-v8a.apk
           fi
-          echo "Found APK: $APK_FILE"
-          cp "$APK_FILE" output-apk/MyTube-arm64-v8a.apk
 
-      - name: Upload arm64-v8a APK Artifact
+          UNIVERSAL_FILE=$(find app/build/outputs/apk/ -type f -name "*universal*.apk" | head -n 1)
+          if [ -n "$UNIVERSAL_FILE" ]; then
+            echo "Found universal APK: $UNIVERSAL_FILE"
+            cp "$UNIVERSAL_FILE" output-apk/MyTube-universal.apk
+          fi
+
+          ARMV7_FILE=$(find app/build/outputs/apk/ -type f -name "*armeabi-v7a*.apk" | head -n 1)
+          if [ -n "$ARMV7_FILE" ]; then
+            echo "Found armeabi-v7a APK: $ARMV7_FILE"
+            cp "$ARMV7_FILE" output-apk/MyTube-armeabi-v7a.apk
+          fi
+
+          ls -lh output-apk/
+
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MyTube-arm64-v8a
-          path: output-apk/MyTube-arm64-v8a.apk
+          name: MyTube-APKs
+          path: output-apk/*.apk
           if-no-files-found: error
 
       - name: Automatically Publish or Update Beta Release
@@ -74,16 +86,16 @@ jobs:
           fi
           
           TITLE="MyTube $TAG (Auto-Build)"
-          BODY="Bản build APK mới nhất được tự động cập nhật bởi GitHub Actions từ commit trên nhánh \`main\`.\n\n- **Commit**: \`${{ github.sha }}\`\n- **Action Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n- **Thời gian build**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')\n\n### 📦 Tệp cài đặt:\n- \`MyTube-arm64-v8a.apk\` (Kiến trúc arm64-v8a, Android 7.0+)"
+          BODY="Bản build APK mới nhất được tự động cập nhật bởi GitHub Actions từ commit trên nhánh \`main\`.\n\n- **Commit**: \`${{ github.sha }}\`\n- **Action Run**: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n- **Thời gian build**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')\n\n### 📦 Tệp cài đặt:\n- \`MyTube-arm64-v8a.apk\` (Tối ưu thiết bị 64-bit hiện đại, Android 7.0+)\n- \`MyTube-universal.apk\` (Tương thích mọi kiến trúc thiết bị Android)\n- \`MyTube-armeabi-v7a.apk\` (Tối ưu thiết bị 32-bit cũ)"
           
           echo "Processing release tag: $TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists, updating asset..."
+            echo "Release $TAG exists, updating assets..."
             gh release edit "$TAG" --title "$TITLE" --prerelease
-            gh release upload "$TAG" output-apk/MyTube-arm64-v8a.apk --clobber
+            gh release upload "$TAG" output-apk/*.apk --clobber
           else
             echo "Creating new release $TAG..."
-            gh release create "$TAG" output-apk/MyTube-arm64-v8a.apk \
+            gh release create "$TAG" output-apk/*.apk \
               --title "$TITLE" \
               --notes "$BODY" \
               --prerelease

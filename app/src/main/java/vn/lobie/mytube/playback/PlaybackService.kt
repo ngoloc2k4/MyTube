@@ -2,6 +2,8 @@ package vn.lobie.mytube.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.audiofx.LoudnessEnhancer
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -10,14 +12,23 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import vn.lobie.mytube.MainActivity
+import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
@@ -52,6 +63,46 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        // Audio Normalization: Dynamic LoudnessEnhancer on audio session
+        val settingsDataStore = SettingsDataStore(this)
+        var normalizationEnabled = true
+
+        fun updateLoudnessEnhancer(audioSessionId: Int) {
+            try {
+                if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
+                    loudnessEnhancer?.release()
+                    loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                        setTargetGain(400) // +4dB boost with limiter
+                        enabled = normalizationEnabled
+                    }
+                    Log.d("PlaybackService", "LoudnessEnhancer attached to session $audioSessionId (enabled=$normalizationEnabled)")
+                }
+            } catch (e: Exception) {
+                Log.e("PlaybackService", "Error configuring LoudnessEnhancer", e)
+            }
+        }
+
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioSessionIdChanged(
+                eventTime: AnalyticsListener.EventTime,
+                audioSessionId: Int
+            ) {
+                updateLoudnessEnhancer(audioSessionId)
+            }
+        })
+
+        serviceScope.launch {
+            settingsDataStore.audioNormalizationEnabled.collect { enabled ->
+                normalizationEnabled = enabled
+                try {
+                    loudnessEnhancer?.enabled = enabled
+                    Log.d("PlaybackService", "LoudnessEnhancer toggled: $enabled")
+                } catch (e: Exception) {
+                    Log.e("PlaybackService", "Failed to toggle LoudnessEnhancer", e)
+                }
+            }
+        }
 
         val sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
@@ -90,6 +141,12 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        try {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = null
+        } catch (_: Exception) {}
+        serviceScope.cancel()
+
         mediaSession?.run {
             player.release()
             release()

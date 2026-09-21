@@ -238,6 +238,20 @@ class SettingsViewModel(
         viewModelScope.launch { settingsDataStore.setReturnDislikeEnabled(enabled) }
     }
 
+    val audioNormalizationEnabled = settingsDataStore.audioNormalizationEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val crossfadeDurationSeconds = settingsDataStore.crossfadeDurationSeconds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    fun setAudioNormalizationEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsDataStore.setAudioNormalizationEnabled(enabled) }
+    }
+
+    fun setCrossfadeDurationSeconds(seconds: Int) {
+        viewModelScope.launch { settingsDataStore.setCrossfadeDurationSeconds(seconds) }
+    }
+
     fun clearWatchHistory() {
         viewModelScope.launch(Dispatchers.IO) {
             db.watchHistoryDao().deleteAll()

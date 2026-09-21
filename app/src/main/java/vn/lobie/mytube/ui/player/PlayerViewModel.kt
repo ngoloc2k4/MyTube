@@ -174,11 +174,18 @@ class PlayerViewModel(
         }
     }
 
+    private var crossfadeSeconds = 0
+
     init {
         initializeController()
         viewModelScope.launch {
             settingsDataStore.autoPlayNext.collect { enabled ->
                 _uiState.update { it.copy(isAutoPlayEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            settingsDataStore.crossfadeDurationSeconds.collect { sec ->
+                crossfadeSeconds = sec
             }
         }
     }
@@ -455,6 +462,20 @@ class PlayerViewModel(
                 p.seekTo(startPositionMs)
             }
             p.setPlaybackSpeed(_uiState.value.playbackSpeed)
+            if (crossfadeSeconds > 0) {
+                p.volume = 0.2f
+                viewModelScope.launch {
+                    val steps = 8
+                    val stepDelay = (crossfadeSeconds * 1000L / steps).coerceIn(80L, 250L)
+                    for (i in 1..steps) {
+                        delay(stepDelay)
+                        p.volume = (0.2f + (0.8f * (i.toFloat() / steps))).coerceIn(0.2f, 1.0f)
+                    }
+                    p.volume = 1.0f
+                }
+            } else {
+                p.volume = 1.0f
+            }
             p.play()
         } else {
             pendingMediaItem = mediaItem
@@ -675,9 +696,16 @@ class PlayerViewModel(
                 delay(1000)
                 remaining--
                 _uiState.update { it.copy(sleepTimerRemainingSeconds = remaining) }
+                // Smooth audio fade-out during final 20 seconds
+                if (remaining in 1..20) {
+                    val fade = (remaining / 20f).coerceIn(0.05f, 1.0f)
+                    player?.volume = fade
+                }
             }
             if (remaining <= 0) {
                 player?.pause()
+                player?.volume = 1.0f // Restore volume for future playback
+                sleepTimerJob = null
                 _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerAtEnd = false) }
             }
         }
@@ -685,6 +713,8 @@ class PlayerViewModel(
 
     fun cancelSleepTimer() {
         sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        player?.volume = 1.0f
         _uiState.update { it.copy(sleepTimerRemainingSeconds = null, isSleepTimerAtEnd = false) }
     }
 
@@ -995,6 +1025,16 @@ class PlayerViewModel(
                         if (seg != null && seg.actionType == "skip") {
                             p.seekTo(seg.endMs)
                             skippedSeg = seg
+                        }
+                    }
+
+                    // Audio Crossfade: Smooth fade-out when nearing end of track
+                    if (crossfadeSeconds > 0 && sleepTimerJob == null && dur > (crossfadeSeconds * 2 * 1000L)) {
+                        val remainingToTrackEnd = dur - pos
+                        val crossfadeMs = crossfadeSeconds * 1000L
+                        if (remainingToTrackEnd in 0..crossfadeMs) {
+                            val fadeVol = (remainingToTrackEnd.toFloat() / crossfadeMs.toFloat()).coerceIn(0.1f, 1.0f)
+                            p.volume = fadeVol
                         }
                     }
 

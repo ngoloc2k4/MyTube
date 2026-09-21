@@ -30,6 +30,8 @@ class SettingsDataStore(private val context: Context) {
         val SPONSOR_BLOCK_ENABLED = booleanPreferencesKey("sponsor_block_enabled")
         val RETURN_DISLIKE_ENABLED = booleanPreferencesKey("return_dislike_enabled")
         val INVIDIOUS_INSTANCES = stringPreferencesKey("invidious_instances")
+        val AUDIO_NORMALIZATION_ENABLED = booleanPreferencesKey("audio_normalization_enabled")
+        val CROSSFADE_DURATION_SECONDS = intPreferencesKey("crossfade_duration_seconds")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -181,6 +183,26 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setInvidiousInstances(instances: List<String>) {
         context.dataStore.edit { preferences ->
             preferences[INVIDIOUS_INSTANCES] = instances.joinToString("\n")
+        }
+    }
+
+    val audioNormalizationEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AUDIO_NORMALIZATION_ENABLED] ?: true
+    }
+
+    suspend fun setAudioNormalizationEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AUDIO_NORMALIZATION_ENABLED] = enabled
+        }
+    }
+
+    val crossfadeDurationSeconds: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[CROSSFADE_DURATION_SECONDS] ?: 0
+    }
+
+    suspend fun setCrossfadeDurationSeconds(seconds: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[CROSSFADE_DURATION_SECONDS] = seconds
         }
     }
 }
