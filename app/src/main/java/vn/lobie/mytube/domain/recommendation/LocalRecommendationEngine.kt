@@ -29,20 +29,20 @@ class LocalRecommendationEngine(
             // 1. Collect signals from local Room DB
             val signals = collectUserSignals()
 
-            // 2. Cold-start fallback: If no history, liked videos, or subscriptions, fallback to regional trending
-            val hasSignals = signals.watchHistory.isNotEmpty() ||
-                    signals.likedVideos.isNotEmpty() ||
-                    signals.subscriptions.isNotEmpty()
+            // 2. Three distinct personalization states:
+            // State A: Cold-start (New user - 0 history, 0 likes, 0 subscriptions) -> Pure Regional Trending
+            // State B: Insufficient / Warm-up user (< 3 signals) -> Hybrid (Trending 60% + Channel/Keyword seeds 40%)
+            // State C: Personalized-ready (>= 3 signals) -> Multi-source candidate retrieval + Diversity scoring
+            val totalSignalsCount = signals.watchHistory.size + signals.likedVideos.size + signals.subscriptions.size
 
-            if (!hasSignals) {
-                Log.d("RecEngine", "Cold start detected: fetching regional trending videos")
+            if (totalSignalsCount == 0) {
+                Log.d("RecEngine", "State A (Cold-start): fetching regional trending videos directly")
                 val trending = repository.getTrendingVideos().getOrDefault(emptyList())
                 val filtered = trending.filterNot { signals.hiddenVideoIds.contains(it.id) }
                 return@coroutineScope Result.success(filtered.take(limit))
             }
 
             // 3. Multi-source candidate generation
-            // Extract top channels & keywords for candidate retrieval queries
             val channelAffinities = scorer.extractChannelAffinities(signals)
             val topChannels = channelAffinities.entries
                 .sortedByDescending { it.value }
@@ -68,7 +68,7 @@ class LocalRecommendationEngine(
                 }
             }
 
-            // Also fetch regional trending to inject exploration & serendipity (30% pool)
+            // Also fetch regional trending to inject exploration & serendipity
             val deferredTrending = async {
                 repository.getTrendingVideos().getOrDefault(emptyList())
             }
@@ -81,6 +81,11 @@ class LocalRecommendationEngine(
                 .filterNot { signals.hiddenVideoIds.contains(it.id) }
                 .distinctBy { it.id }
 
+            if (allCandidates.isEmpty() && trendingResults.isNotEmpty()) {
+                Log.w("RecEngine", "No search candidates found, returning trending fallback")
+                return@coroutineScope Result.success(trendingResults.take(limit))
+            }
+
             // 4. Score and rank candidates with diversity constraints & watched suppression
             val ranked = scorer.rankWithDiversity(
                 candidates = allCandidates,
@@ -90,15 +95,19 @@ class LocalRecommendationEngine(
             )
 
             if (ranked.isNotEmpty()) {
-                Log.d("RecEngine", "Successfully ranked ${ranked.size} personalized recommendations")
+                Log.d("RecEngine", "Successfully ranked ${ranked.size} personalized recommendations (signals=$totalSignalsCount)")
                 Result.success(ranked)
-            } else {
+            } else if (trendingResults.isNotEmpty()) {
                 Log.w("RecEngine", "Ranked list empty, falling back to regional trending")
                 Result.success(trendingResults.take(limit))
+            } else {
+                Log.w("RecEngine", "All candidate lists empty, returning candidate pool")
+                Result.success(allCandidates.take(limit))
             }
         } catch (e: Exception) {
             Log.e("RecEngine", "Error computing local recommendations", e)
-            repository.getTrendingVideos().map { it.take(limit) }
+            val fallback = repository.getTrendingVideos().getOrDefault(emptyList())
+            Result.success(fallback.take(limit))
         }
     }
 

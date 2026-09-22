@@ -43,6 +43,7 @@ class HomeViewModel(
     private val repository: YouTubeRepository,
     private val database: MyTubeDatabase? = null,
     private val settingsDataStore: SettingsDataStore? = null,
+    private val context: android.content.Context? = null,
     private val getRecommendationsUseCase: vn.lobie.mytube.domain.usecase.GetRecommendationsUseCase =
         vn.lobie.mytube.domain.usecase.GetRecommendationsUseCase(
             watchHistoryDao = database?.watchHistoryDao(),
@@ -78,6 +79,21 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        // Instantaneous load from disk cache first if in-memory cache is empty
+        viewModelScope.launch {
+            if (cachedHomeVideos.isEmpty() && context != null) {
+                val diskCached = vn.lobie.mytube.data.local.cache.HomeFeedCache.loadHomeFeed(context)
+                if (diskCached.isNotEmpty() && _uiState.value is HomeUiState.Loading) {
+                    cachedHomeVideos = diskCached
+                    _uiState.value = HomeUiState.Success(
+                        videos = diskCached,
+                        selectedCategory = VideoCategory.ALL
+                    )
+                    Log.d("HomeViewModel", "Loaded ${diskCached.size} videos from persistent disk cache immediately")
+                }
+            }
+        }
+
         if (settingsDataStore != null) {
             viewModelScope.launch {
                 settingsDataStore.contentRegion.collect { region ->
@@ -85,6 +101,7 @@ class HomeViewModel(
                     (repository as? CascadingYouTubeRepository)?.setRegion(region)
                     if (isRegionChanged) {
                         cachedHomeVideos = emptyList()
+                        context?.let { vn.lobie.mytube.data.local.cache.HomeFeedCache.clear(it) }
                     }
                     loadRecommendedVideos(forceRefresh = isRegionChanged)
                 }
@@ -101,20 +118,28 @@ class HomeViewModel(
 
     fun loadRecommendedVideos(forceRefresh: Boolean = false) {
         viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
             if (!forceRefresh && cachedHomeVideos.isNotEmpty()) {
                 _uiState.value = HomeUiState.Success(
                     videos = cachedHomeVideos,
                     selectedCategory = VideoCategory.ALL
                 )
-            } else {
+            } else if (_uiState.value !is HomeUiState.Success) {
                 _uiState.value = HomeUiState.Loading
             }
 
             try {
                 val recResult = getRecommendationsUseCase(limit = 25)
                 recResult.onSuccess { videos ->
+                    val elapsed = System.currentTimeMillis() - startTime
+                    Log.d("HomeViewModel", "Recommendations loaded in ${elapsed}ms (${videos.size} items)")
                     if (videos.isNotEmpty()) {
                         cachedHomeVideos = videos
+                        context?.let { ctx ->
+                            viewModelScope.launch {
+                                vn.lobie.mytube.data.local.cache.HomeFeedCache.saveHomeFeed(ctx, videos)
+                            }
+                        }
                         _uiState.value = HomeUiState.Success(
                             videos = videos,
                             selectedCategory = VideoCategory.ALL
@@ -125,10 +150,25 @@ class HomeViewModel(
                             selectedCategory = VideoCategory.ALL
                         )
                     } else {
-                        _uiState.value = HomeUiState.Success(
-                            videos = emptyList(),
-                            selectedCategory = VideoCategory.ALL
-                        )
+                        // Fallback directly to trending if recommendation returned empty
+                        val trending = repository.getTrendingVideos().getOrDefault(emptyList())
+                        if (trending.isNotEmpty()) {
+                            cachedHomeVideos = trending
+                            context?.let { ctx ->
+                                viewModelScope.launch {
+                                    vn.lobie.mytube.data.local.cache.HomeFeedCache.saveHomeFeed(ctx, trending)
+                                }
+                            }
+                            _uiState.value = HomeUiState.Success(
+                                videos = trending,
+                                selectedCategory = VideoCategory.ALL
+                            )
+                        } else {
+                            _uiState.value = HomeUiState.Success(
+                                videos = emptyList(),
+                                selectedCategory = VideoCategory.ALL
+                            )
+                        }
                     }
                 }.onFailure { error ->
                     Log.e("HomeViewModel", "Failed to load recommendations", error)
@@ -138,7 +178,17 @@ class HomeViewModel(
                             selectedCategory = VideoCategory.ALL
                         )
                     } else {
-                        _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Không thể tải danh sách gợi ý")
+                        // Attempt regional trending fallback before showing error
+                        val trending = repository.getTrendingVideos().getOrDefault(emptyList())
+                        if (trending.isNotEmpty()) {
+                            cachedHomeVideos = trending
+                            _uiState.value = HomeUiState.Success(
+                                videos = trending,
+                                selectedCategory = VideoCategory.ALL
+                            )
+                        } else {
+                            _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Không thể tải danh sách gợi ý")
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -149,7 +199,16 @@ class HomeViewModel(
                         selectedCategory = VideoCategory.ALL
                     )
                 } else {
-                    _uiState.value = HomeUiState.Error(e.localizedMessage ?: "Failed to load feed")
+                    val trending = repository.getTrendingVideos().getOrDefault(emptyList())
+                    if (trending.isNotEmpty()) {
+                        cachedHomeVideos = trending
+                        _uiState.value = HomeUiState.Success(
+                            videos = trending,
+                            selectedCategory = VideoCategory.ALL
+                        )
+                    } else {
+                        _uiState.value = HomeUiState.Error(e.localizedMessage ?: "Failed to load feed")
+                    }
                 }
             }
         }

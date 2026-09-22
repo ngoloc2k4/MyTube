@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val homeViewModel: HomeViewModel = viewModel {
-                        HomeViewModel(repository, database, settingsDataStore)
+                        HomeViewModel(repository, database, settingsDataStore, applicationContext)
                     }
                     val playerViewModel: PlayerViewModel = viewModel {
                         PlayerViewModel(application, repository)
@@ -186,7 +186,7 @@ class MainActivity : ComponentActivity() {
                         SettingsViewModel(application, settingsDataStore, repository)
                     }
                     val musicViewModel: MusicViewModel = viewModel {
-                        MusicViewModel(application, repository)
+                        MusicViewModel(application, repository, settingsDataStore = settingsDataStore)
                     }
 
                     val playerUiState by playerViewModel.uiState.collectAsState()
