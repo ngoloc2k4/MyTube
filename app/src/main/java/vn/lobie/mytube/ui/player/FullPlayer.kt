@@ -2600,7 +2600,7 @@ private fun VideoPlayerSurface(
                     IconButton(onClick = onCollapse) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = stringResource(R.string.collapse_player),
+                            contentDescription = stringResource(R.string.minimize_player),
                             tint = Color.White,
                             modifier = Modifier.size(28.dp)
                         )
