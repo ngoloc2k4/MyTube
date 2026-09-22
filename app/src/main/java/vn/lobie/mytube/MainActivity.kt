@@ -398,7 +398,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(applicationContext)) {
-            androidx.lifecycle.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                 try {
                     val db = MyTubeDatabase.getInstance(applicationContext)
                     vn.lobie.mytube.data.importer.ExternalDataManager.saveToExternalStorage(applicationContext, db)
