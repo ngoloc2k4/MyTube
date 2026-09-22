@@ -103,52 +103,57 @@ class BackupRestoreManager(
         prettyPrint = true
     }
 
+    suspend fun generateBackupJsonString(): Pair<String, Int> = withContext(Dispatchers.IO) {
+        val subs = database.subscriptionDao().getAllList().map {
+            BackupSubscription(it.channelId, it.channelName, it.avatarUrl, it.subscribedAt)
+        }
+        val history = database.watchHistoryDao().getAllList().map {
+            BackupWatchHistory(
+                it.videoId, it.title, it.channelId, it.channelName,
+                it.thumbnailUrl, it.category, it.durationSeconds,
+                it.watchedDurationMs, it.timestamp
+            )
+        }
+        val liked = database.likedVideoDao().getAllList().map {
+            BackupLikedVideo(
+                it.videoId, it.title, it.channelId, it.channelName,
+                it.thumbnailUrl, it.durationSeconds, it.likedAt
+            )
+        }
+        val playlists = database.playlistDao().getAllList().map {
+            BackupPlaylist(
+                it.id, it.name, it.isSystem, it.isMusicPlaylist,
+                it.createdAt, it.updatedAt
+            )
+        }
+        val playlistVideos = database.playlistVideoDao().getAllList().map {
+            BackupPlaylistVideo(
+                it.playlistId, it.videoId, it.title, it.channelName,
+                it.thumbnailUrl, it.durationSeconds, it.sortOrder, it.addedAt
+            )
+        }
+
+        val backup = MyTubeBackupData(
+            subscriptions = subs,
+            watchHistory = history,
+            likedVideos = liked,
+            playlists = playlists,
+            playlistVideos = playlistVideos
+        )
+        val jsonString = json.encodeToString(backup)
+        val totalItems = subs.size + history.size + liked.size + playlists.size + playlistVideos.size
+        Pair(jsonString, totalItems)
+    }
+
     suspend fun exportBackupJson(uri: Uri): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            val subs = database.subscriptionDao().getAllList().map {
-                BackupSubscription(it.channelId, it.channelName, it.avatarUrl, it.subscribedAt)
-            }
-            val history = database.watchHistoryDao().getAllList().map {
-                BackupWatchHistory(
-                    it.videoId, it.title, it.channelId, it.channelName,
-                    it.thumbnailUrl, it.category, it.durationSeconds,
-                    it.watchedDurationMs, it.timestamp
-                )
-            }
-            val liked = database.likedVideoDao().getAllList().map {
-                BackupLikedVideo(
-                    it.videoId, it.title, it.channelId, it.channelName,
-                    it.thumbnailUrl, it.durationSeconds, it.likedAt
-                )
-            }
-            val playlists = database.playlistDao().getAllList().map {
-                BackupPlaylist(
-                    it.id, it.name, it.isSystem, it.isMusicPlaylist,
-                    it.createdAt, it.updatedAt
-                )
-            }
-            val playlistVideos = database.playlistVideoDao().getAllList().map {
-                BackupPlaylistVideo(
-                    it.playlistId, it.videoId, it.title, it.channelName,
-                    it.thumbnailUrl, it.durationSeconds, it.sortOrder, it.addedAt
-                )
-            }
-
-            val backup = MyTubeBackupData(
-                subscriptions = subs,
-                watchHistory = history,
-                likedVideos = liked,
-                playlists = playlists,
-                playlistVideos = playlistVideos
-            )
-            val jsonString = json.encodeToString(backup)
+            val (jsonString, totalItems) = generateBackupJsonString()
 
             context.contentResolver.openOutputStream(uri)?.use { os ->
                 os.write(jsonString.toByteArray(Charsets.UTF_8))
                 os.flush()
             } ?: return@withContext Result.failure(Exception("Cannot open output stream"))
 
-            val totalItems = subs.size + history.size + liked.size + playlists.size + playlistVideos.size
             Result.success(totalItems)
         } catch (e: Exception) {
             Result.failure(e)
@@ -187,9 +192,8 @@ class BackupRestoreManager(
         }
     }
 
-    suspend fun restoreBackupJson(uri: Uri): Result<RestoreStats> = withContext(Dispatchers.IO) {
+    suspend fun restoreBackupFromString(content: String): Result<RestoreStats> = withContext(Dispatchers.IO) {
         try {
-            val content = readBoundedText(uri)
             val backup = json.decodeFromString<MyTubeBackupData>(content)
 
             database.withTransaction {
@@ -252,6 +256,15 @@ class BackupRestoreManager(
                     playlistVideosCount = backup.playlistVideos.size
                 )
             )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun restoreBackupJson(uri: Uri): Result<RestoreStats> = withContext(Dispatchers.IO) {
+        try {
+            val content = readBoundedText(uri)
+            restoreBackupFromString(content)
         } catch (e: Exception) {
             Result.failure(e)
         }

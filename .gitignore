@@ -13,3 +13,15 @@
 output-apk/
 release-apk/
 build_temp/
+
+# Keystores & Environment secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore_base64.txt
+
+# Local helper scripts
+scripts/
+/scripts/

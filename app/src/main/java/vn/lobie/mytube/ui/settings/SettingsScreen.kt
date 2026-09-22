@@ -407,6 +407,36 @@ fun SettingsScreen(
 
             item {
                 SettingClickableItem(
+                    icon = Icons.Default.Storage,
+                    title = stringResource(R.string.backup_external_save),
+                    subtitle = stringResource(R.string.backup_external_save_desc),
+                    onClick = {
+                        if (!vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(context)) {
+                            vn.lobie.mytube.data.importer.ExternalDataManager.requestStoragePermission(context)
+                        } else {
+                            viewModel.saveToExternalStorage()
+                        }
+                    }
+                )
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.Refresh,
+                    title = stringResource(R.string.backup_external_restore),
+                    subtitle = stringResource(R.string.backup_external_restore_desc),
+                    onClick = {
+                        if (!vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(context)) {
+                            vn.lobie.mytube.data.importer.ExternalDataManager.requestStoragePermission(context)
+                        } else {
+                            viewModel.restoreFromExternalStorage()
+                        }
+                    }
+                )
+            }
+
+            item {
+                SettingClickableItem(
                     icon = Icons.Default.CloudUpload,
                     title = stringResource(R.string.backup_export),
                     subtitle = stringResource(R.string.backup_export_desc),

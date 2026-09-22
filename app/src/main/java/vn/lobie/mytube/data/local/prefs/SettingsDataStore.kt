@@ -35,6 +35,7 @@ class SettingsDataStore(private val context: Context) {
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
         val LISTENBRAINZ_ENABLED = booleanPreferencesKey("listenbrainz_enabled")
         val LISTENBRAINZ_TOKEN = stringPreferencesKey("listenbrainz_token")
+        val STORAGE_PERMISSION_PROMPTED = booleanPreferencesKey("storage_permission_prompted")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -273,6 +274,16 @@ class SettingsDataStore(private val context: Context) {
         val encrypted = if (trimmed.isNotBlank()) vn.lobie.mytube.core.common.CryptoManager.encrypt(trimmed) else ""
         context.dataStore.edit { preferences ->
             preferences[LISTENBRAINZ_TOKEN] = encrypted
+        }
+    }
+
+    val hasPromptedStoragePermission: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[STORAGE_PERMISSION_PROMPTED] ?: false
+    }
+
+    suspend fun setPromptedStoragePermission(prompted: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[STORAGE_PERMISSION_PROMPTED] = prompted
         }
     }
 }

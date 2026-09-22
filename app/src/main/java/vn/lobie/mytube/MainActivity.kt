@@ -27,8 +27,13 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Storage
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -89,6 +94,78 @@ class MainActivity : ComponentActivity() {
                                 repository.setLanguage(lang)
                             }
                         }
+                    }
+
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        launch(kotlinx.coroutines.Dispatchers.IO) {
+                            vn.lobie.mytube.data.importer.ExternalDataManager.checkAndAutoRestoreIfEmpty(
+                                applicationContext,
+                                database
+                            )
+                        }
+                    }
+
+                    val hasPromptedPermission by settingsDataStore.hasPromptedStoragePermission.collectAsState(initial = true)
+                    var showStoragePermissionDialog by rememberSaveable { mutableStateOf(false) }
+
+                    androidx.compose.runtime.LaunchedEffect(hasPromptedPermission) {
+                        if (!hasPromptedPermission && !vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(applicationContext)) {
+                            showStoragePermissionDialog = true
+                        }
+                    }
+
+                    if (showStoragePermissionDialog) {
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = {
+                                showStoragePermissionDialog = false
+                                lifecycleScope.launch {
+                                    settingsDataStore.setPromptedStoragePermission(true)
+                                }
+                            },
+                            icon = {
+                                androidx.compose.material3.Icon(
+                                    Icons.Default.Storage,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            title = {
+                                androidx.compose.material3.Text(
+                                    text = stringResource(R.string.storage_permission_dialog_title),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            text = {
+                                androidx.compose.material3.Text(
+                                    text = stringResource(R.string.storage_permission_dialog_msg)
+                                )
+                            },
+                            confirmButton = {
+                                androidx.compose.material3.Button(
+                                    onClick = {
+                                        showStoragePermissionDialog = false
+                                        lifecycleScope.launch {
+                                            settingsDataStore.setPromptedStoragePermission(true)
+                                        }
+                                        vn.lobie.mytube.data.importer.ExternalDataManager.requestStoragePermission(this@MainActivity)
+                                    }
+                                ) {
+                                    androidx.compose.material3.Text(stringResource(R.string.storage_permission_dialog_grant))
+                                }
+                            },
+                            dismissButton = {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        showStoragePermissionDialog = false
+                                        lifecycleScope.launch {
+                                            settingsDataStore.setPromptedStoragePermission(true)
+                                        }
+                                    }
+                                ) {
+                                    androidx.compose.material3.Text(stringResource(R.string.storage_permission_dialog_later))
+                                }
+                            }
+                        )
                     }
 
                     val homeViewModel: HomeViewModel = viewModel {
@@ -299,6 +376,34 @@ class MainActivity : ComponentActivity() {
                     enterPictureInPictureMode(params)
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e)
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(applicationContext)) {
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val db = MyTubeDatabase.getInstance(applicationContext)
+                    vn.lobie.mytube.data.importer.ExternalDataManager.checkAndAutoRestoreIfEmpty(applicationContext, db)
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "Auto-restore external data onResume: ${e.message}")
+                }
+            }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(applicationContext)) {
+            androidx.lifecycle.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val db = MyTubeDatabase.getInstance(applicationContext)
+                    vn.lobie.mytube.data.importer.ExternalDataManager.saveToExternalStorage(applicationContext, db)
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "Auto-save external data onStop: ${e.message}")
                 }
             }
         }

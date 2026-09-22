@@ -346,6 +346,38 @@ class SettingsViewModel(
         }
     }
 
+    fun saveToExternalStorage() {
+        viewModelScope.launch {
+            val context = app.applicationContext
+            if (!vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(context)) {
+                _backupStatus.value = "Cần cấp quyền truy cập bộ nhớ máy để lưu vào /storage/emulated/0/MyTube/data/."
+                return@launch
+            }
+            val result = vn.lobie.mytube.data.importer.ExternalDataManager.saveToExternalStorage(context, db)
+            _backupStatus.value = result.fold(
+                onSuccess = { file -> "Đã lưu an toàn vào: ${file.absolutePath}!" },
+                onFailure = { err -> "Lưu thất bại: ${err.message}" }
+            )
+        }
+    }
+
+    fun restoreFromExternalStorage() {
+        viewModelScope.launch {
+            val context = app.applicationContext
+            if (!vn.lobie.mytube.data.importer.ExternalDataManager.hasStoragePermission(context)) {
+                _backupStatus.value = "Cần cấp quyền truy cập bộ nhớ máy để đọc từ /storage/emulated/0/MyTube/data/."
+                return@launch
+            }
+            val result = vn.lobie.mytube.data.importer.ExternalDataManager.restoreFromExternalStorage(context, db)
+            _backupStatus.value = result.fold(
+                onSuccess = { stats ->
+                    "Khôi phục thành công: ${stats.subscriptionsCount} kênh, ${stats.historyCount} lịch sử, ${stats.likedCount} đã thích, ${stats.playlistsCount} danh sách phát!"
+                },
+                onFailure = { err -> "Khôi phục thất bại: ${err.message}" }
+            )
+        }
+    }
+
     fun importSubscriptions(uri: android.net.Uri) {
         viewModelScope.launch {
             val result = backupManager.importSubscriptionsFromFile(uri)
