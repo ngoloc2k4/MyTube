@@ -29,16 +29,40 @@ class InvidiousApiClient(
             "https://invidious.projectsegfau.lt",
             "https://inv.tux.pizza"
         )
+
+        fun isValidPublicInstance(url: String): Boolean {
+            return try {
+                val uri = android.net.Uri.parse(url)
+                if (!uri.scheme.equals("https", ignoreCase = true)) return false
+                val host = uri.host?.lowercase() ?: return false
+                if (host == "localhost" || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".lan")) {
+                    return false
+                }
+                // Reject loopback and RFC 1918 / RFC 3927 private IP addresses
+                val isPrivateIp = host.matches(Regex("^(127\\.|10\\.|192\\.168\\.|169\\.254\\.|172\\.(1[6-9]|2[0-9]|3[0-1])\\.).*"))
+                if (isPrivateIp || host == "::1") return false
+                // Must be a valid domain with at least one dot
+                host.matches(Regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"))
+            } catch (_: Exception) {
+                false
+            }
+        }
     }
 
     // Danh sách các instance Invidious public
     val instances: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList(DEFAULT_INSTANCES)
 
     fun addInstance(hostOrUrl: String): Boolean {
-        val formatted = if (hostOrUrl.startsWith("http://") || hostOrUrl.startsWith("https://")) {
-            hostOrUrl.trimEnd('/')
+        val trimmed = hostOrUrl.trim().trimEnd('/')
+        val formatted = if (trimmed.startsWith("https://", ignoreCase = true)) {
+            trimmed
+        } else if (trimmed.startsWith("http://", ignoreCase = true)) {
+            "https://" + trimmed.substring(7)
         } else {
-            "https://${hostOrUrl.trim().trimEnd('/')}"
+            "https://$trimmed"
+        }
+        if (!isValidPublicInstance(formatted)) {
+            return false
         }
         if (!instances.contains(formatted)) {
             instances.add(formatted)
@@ -48,9 +72,10 @@ class InvidiousApiClient(
     }
 
     fun setInstances(newInstances: List<String>) {
-        if (newInstances.isNotEmpty()) {
+        val valid = newInstances.filter { isValidPublicInstance(it) }
+        if (valid.isNotEmpty()) {
             instances.clear()
-            instances.addAll(newInstances)
+            instances.addAll(valid)
         }
     }
 
@@ -73,6 +98,9 @@ class InvidiousApiClient(
     }
 
     suspend fun pingInstance(instanceUrl: String): Pair<Boolean, Long> = withContext(Dispatchers.IO) {
+        if (!isValidPublicInstance(instanceUrl)) {
+            return@withContext Pair(false, -1L)
+        }
         val start = System.currentTimeMillis()
         try {
             val request = Request.Builder()
