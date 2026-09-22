@@ -60,6 +60,9 @@ data class PlayerUiState(
     val likesCount: Long? = null,
     val currentSourceName: String? = null,
     val downloadStatus: Int = 0,
+    val downloadProgress: Int = 0,
+    val downloadOptions: List<DownloadOption> = emptyList(),
+    val showDownloadDialog: Boolean = false,
     val musicMetadata: vn.lobie.mytube.domain.model.MusicMetadata? = null,
     val artistInfo: vn.lobie.mytube.domain.model.ArtistInfo? = null,
     val errorMessage: String? = null
@@ -78,3 +81,12 @@ data class PlayerUiState(
         get() = currentQueueIndex > 0 || (loopMode == LoopMode.ALL && queue.isNotEmpty())
 }
 
+data class DownloadOption(
+    val title: String,
+    val quality: String,
+    val format: String,
+    val isAudioOnly: Boolean,
+    val videoUrl: String,
+    val audioUrl: String? = null,
+    val bitrate: Long = 0L
+)

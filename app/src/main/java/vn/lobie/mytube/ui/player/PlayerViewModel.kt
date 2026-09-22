@@ -393,7 +393,12 @@ class PlayerViewModel(
         downloadObservationJob = viewModelScope.launch {
             database.downloadDao().getAll().collect { list ->
                 val dl = list.firstOrNull { it.videoId == video.id }
-                _uiState.update { it.copy(downloadStatus = dl?.status ?: 0) }
+                _uiState.update {
+                    it.copy(
+                        downloadStatus = dl?.status ?: 0,
+                        downloadProgress = dl?.progressPercent ?: 0
+                    )
+                }
             }
         }
 
@@ -433,11 +438,13 @@ class PlayerViewModel(
             // Check if downloaded locally for offline playback
             val downloadedFile = vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).getDownloadedFile(video.id)
             if (downloadedFile != null) {
+                val isAudio = downloadedFile.extension.lowercase() in listOf("m4a", "mp3", "aac", "ogg")
                 _uiState.update {
                     it.copy(
                         availableQualities = listOf("Offline"),
                         selectedQuality = "Offline",
-                        currentSourceName = "Ngoại tuyến"
+                        currentSourceName = "Ngoại tuyến",
+                        isAudioOnly = isAudio
                     )
                 }
                 setPlayerMedia(android.net.Uri.fromFile(downloadedFile).toString(), video, resumePositionMs)
@@ -455,11 +462,13 @@ class PlayerViewModel(
             val availableQualities = if (qualities.isNotEmpty()) listOf("Auto") + qualities else listOf("Auto")
 
             val sourceName = streamInfo?.source?.takeIf { it.isNotBlank() } ?: "Native"
+            val downloadOpts = computeDownloadOptions(streamInfo)
             _uiState.update {
                 it.copy(
                     availableQualities = availableQualities,
                     selectedQuality = "Auto",
-                    currentSourceName = sourceName
+                    currentSourceName = sourceName,
+                    downloadOptions = downloadOpts
                 )
             }
 
@@ -994,21 +1003,111 @@ class PlayerViewModel(
         }
     }
 
-    fun downloadCurrentVideo() {
-        val video = _uiState.value.currentVideo ?: return
-        viewModelScope.launch {
-            val stream = currentStreamInfo ?: getStreamWithFallbackUseCase(video.id).getOrNull()
-            val url = stream?.videoStreams?.firstOrNull { it.url.isNotBlank() }?.url
-                ?: stream?.hlsUrl
-                ?: stream?.audioStreams?.firstOrNull { it.url.isNotBlank() }?.url
-            if (url != null) {
-                vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).startDownload(
-                    video = video,
-                    streamUrl = url,
-                    quality = stream?.videoStreams?.firstOrNull()?.quality ?: "720p"
+    private fun computeDownloadOptions(stream: vn.lobie.mytube.domain.model.StreamInfo?): List<DownloadOption> {
+        if (stream == null) return emptyList()
+        val options = mutableListOf<DownloadOption>()
+
+        val bestAudio = stream.audioStreams.firstOrNull {
+            it.format.contains("m4a", ignoreCase = true) || it.format.contains("mp4", ignoreCase = true)
+        } ?: stream.audioStreams.maxByOrNull { it.bitrate } ?: stream.audioStreams.firstOrNull()
+
+        val seenQualities = mutableSetOf<String>()
+        stream.videoStreams.forEach { vs ->
+            val q = vs.quality.trim()
+            if (q.isNotBlank() && seenQualities.add(q)) {
+                val label = when {
+                    q.contains("1080") -> "1080p (Full HD)"
+                    q.contains("720") -> "720p (HD)"
+                    q.contains("480") -> "480p (SD)"
+                    q.contains("360") -> "360p (SD)"
+                    else -> q
+                }
+                options.add(
+                    DownloadOption(
+                        title = "Video $label",
+                        quality = q,
+                        format = "mp4",
+                        isAudioOnly = false,
+                        videoUrl = vs.url,
+                        audioUrl = bestAudio?.url,
+                        bitrate = vs.bitrate
+                    )
                 )
             }
         }
+
+        if (bestAudio != null && bestAudio.url.isNotBlank()) {
+            val audioQualityLabel = if (bestAudio.bitrate > 0) "${bestAudio.bitrate / 1000} kbps" else bestAudio.quality.ifBlank { "M4A" }
+            options.add(
+                DownloadOption(
+                    title = "Âm thanh ($audioQualityLabel)",
+                    quality = bestAudio.quality.ifBlank { "128k" },
+                    format = "m4a",
+                    isAudioOnly = true,
+                    videoUrl = bestAudio.url,
+                    audioUrl = null,
+                    bitrate = bestAudio.bitrate
+                )
+            )
+        }
+
+        if (options.isEmpty()) {
+            val fallbackUrl = stream.videoStreams.firstOrNull()?.url ?: stream.hlsUrl ?: stream.audioStreams.firstOrNull()?.url
+            if (!fallbackUrl.isNullOrBlank()) {
+                options.add(
+                    DownloadOption(
+                        title = "Video tiêu chuẩn (720p)",
+                        quality = "720p",
+                        format = "mp4",
+                        isAudioOnly = false,
+                        videoUrl = fallbackUrl,
+                        audioUrl = null
+                    )
+                )
+            }
+        }
+
+        return options
+    }
+
+    fun showDownloadDialog(show: Boolean) {
+        _uiState.update { it.copy(showDownloadDialog = show) }
+    }
+
+    fun prepareAndShowDownloadDialog() {
+        val video = _uiState.value.currentVideo ?: return
+        if (_uiState.value.downloadOptions.isNotEmpty()) {
+            _uiState.update { it.copy(showDownloadDialog = true) }
+            return
+        }
+        viewModelScope.launch {
+            val stream = currentStreamInfo ?: getStreamWithFallbackUseCase(video.id).getOrNull()
+            currentStreamInfo = stream
+            val opts = computeDownloadOptions(stream)
+            _uiState.update {
+                it.copy(
+                    downloadOptions = opts,
+                    showDownloadDialog = true
+                )
+            }
+        }
+    }
+
+    fun downloadWithOption(option: DownloadOption) {
+        val video = _uiState.value.currentVideo ?: return
+        _uiState.update { it.copy(showDownloadDialog = false) }
+        vn.lobie.mytube.data.download.DownloadManager.getInstance(getApplication()).startDownload(
+            video = video,
+            streamUrl = option.videoUrl,
+            audioUrl = option.audioUrl,
+            quality = option.quality,
+            format = option.format,
+            isAudioOnly = option.isAudioOnly
+        )
+    }
+
+    fun downloadCurrentVideo() {
+        prepareAndShowDownloadDialog()
     }
 
     fun cancelCurrentDownload() {

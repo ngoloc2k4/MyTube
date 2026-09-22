@@ -237,7 +237,9 @@ class MainActivity : ComponentActivity() {
                                         onSetSubtitleBgColor = { playerViewModel.setSubtitleBgColor(it) },
                                         onMoveQueueItem = { from, to -> playerViewModel.moveQueueItem(from, to) },
                                         onClearQueue = { playerViewModel.clearQueue() },
-                                        onDownloadVideo = { playerViewModel.downloadCurrentVideo() }
+                                        onDownloadVideo = { playerViewModel.downloadCurrentVideo() },
+                                        onDownloadOptionSelected = { playerViewModel.downloadWithOption(it) },
+                                        onCancelDownload = { playerViewModel.cancelCurrentDownload() }
                                     )
                                 }
                             }

@@ -119,6 +119,8 @@ fun FullPlayer(
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
     onClearQueue: () -> Unit = {},
     onDownloadVideo: () -> Unit = {},
+    onDownloadOptionSelected: (DownloadOption) -> Unit = {},
+    onCancelDownload: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val video = uiState.currentVideo ?: return
@@ -130,6 +132,9 @@ fun FullPlayer(
     var showAbLoopDialog by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember(video.id) { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
+    var showDownloadQualityDialog by remember { mutableStateOf(false) }
+    var showCancelDownloadDialog by remember { mutableStateOf(false) }
+    var showDeleteDownloadDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
@@ -559,25 +564,43 @@ fun FullPlayer(
 
                         item {
                             FilledTonalButton(
-                                onClick = onDownloadVideo,
+                                onClick = {
+                                    when (uiState.downloadStatus) {
+                                        1 -> showCancelDownloadDialog = true
+                                        2 -> showDeleteDownloadDialog = true
+                                        else -> {
+                                            onDownloadVideo()
+                                            showDownloadQualityDialog = true
+                                        }
+                                    }
+                                },
                                 shape = CircleShape,
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                             ) {
-                                Icon(
-                                    imageVector = when (uiState.downloadStatus) {
-                                        1 -> Icons.Default.Downloading
-                                        2 -> Icons.Default.DownloadDone
-                                        else -> Icons.Default.Download
-                                    },
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                if (uiState.downloadStatus == 1 && uiState.downloadProgress > 0) {
+                                    CircularProgressIndicator(
+                                        progress = { uiState.downloadProgress / 100f },
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = when (uiState.downloadStatus) {
+                                            1 -> Icons.Default.Downloading
+                                            2 -> Icons.Default.DownloadDone
+                                            else -> Icons.Default.Download
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = when (uiState.downloadStatus) {
-                                        1 -> "Đang tải..."
-                                        2 -> "Đã tải"
-                                        else -> "Tải về"
+                                        1 -> if (uiState.downloadProgress > 0) "${uiState.downloadProgress}%" else "Đang tải..."
+                                        2 -> stringResource(R.string.download_status_completed)
+                                        else -> stringResource(R.string.action_download)
                                     },
                                     style = MaterialTheme.typography.labelMedium
                                 )
@@ -1245,25 +1268,43 @@ fun FullPlayer(
 
                             item {
                                 FilledTonalButton(
-                                    onClick = onDownloadVideo,
+                                    onClick = {
+                                        when (uiState.downloadStatus) {
+                                            1 -> showCancelDownloadDialog = true
+                                            2 -> showDeleteDownloadDialog = true
+                                            else -> {
+                                                onDownloadVideo()
+                                                showDownloadQualityDialog = true
+                                            }
+                                        }
+                                    },
                                     shape = CircleShape,
                                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = when (uiState.downloadStatus) {
-                                            1 -> Icons.Default.Downloading
-                                            2 -> Icons.Default.DownloadDone
-                                            else -> Icons.Default.Download
-                                        },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    if (uiState.downloadStatus == 1 && uiState.downloadProgress > 0) {
+                                        CircularProgressIndicator(
+                                            progress = { uiState.downloadProgress / 100f },
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = when (uiState.downloadStatus) {
+                                                1 -> Icons.Default.Downloading
+                                                2 -> Icons.Default.DownloadDone
+                                                else -> Icons.Default.Download
+                                            },
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = when (uiState.downloadStatus) {
-                                            1 -> "Đang tải..."
-                                            2 -> "Đã tải"
-                                            else -> "Tải về"
+                                            1 -> if (uiState.downloadProgress > 0) "${uiState.downloadProgress}%" else "Đang tải..."
+                                            2 -> stringResource(R.string.download_status_completed)
+                                            else -> stringResource(R.string.action_download)
                                         },
                                         style = MaterialTheme.typography.labelMedium
                                     )
@@ -1585,6 +1626,178 @@ fun FullPlayer(
             confirmButton = {
                 TextButton(onClick = { showQualityDialog = false }) {
                     Text(stringResource(R.string.clear_action))
+                }
+            }
+        )
+    }
+
+    // Download Quality Selection Dialog
+    if (showDownloadQualityDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadQualityDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.download_quality_title),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = video.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (uiState.downloadOptions.isEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Đang kiểm tra định dạng...",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        uiState.downloadOptions.forEach { opt ->
+                            Surface(
+                                onClick = {
+                                    onDownloadOptionSelected(opt)
+                                    showDownloadQualityDialog = false
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (opt.isAudioOnly) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = if (opt.isAudioOnly) Icons.Default.MusicNote else Icons.Default.VideoLibrary,
+                                        contentDescription = null,
+                                        tint = if (opt.isAudioOnly) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = opt.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                        )
+                                        Text(
+                                            text = if (opt.isAudioOnly) stringResource(R.string.download_audio_desc) else stringResource(R.string.download_video_desc),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDownloadQualityDialog = false }) {
+                    Text(stringResource(R.string.cancel_action))
+                }
+            }
+        )
+    }
+
+    // Cancel Download Confirmation Dialog
+    if (showCancelDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDownloadDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Downloading,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = { Text(stringResource(R.string.download_cancel_title)) },
+            text = { Text(stringResource(R.string.download_cancel_msg)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onCancelDownload()
+                        showCancelDownloadDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.download_cancel_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDownloadDialog = false }) {
+                    Text(stringResource(R.string.cancel_action))
+                }
+            }
+        )
+    }
+
+    // Delete Download Confirmation Dialog
+    if (showDeleteDownloadDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDownloadDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.DownloadDone,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = { Text(stringResource(R.string.download_delete_title)) },
+            text = { Text(stringResource(R.string.download_delete_msg)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onCancelDownload()
+                        showDeleteDownloadDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.download_delete_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDownloadDialog = false }) {
+                    Text("Đóng")
                 }
             }
         )

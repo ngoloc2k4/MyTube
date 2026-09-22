@@ -70,7 +70,7 @@ fun vn.lobie.mytube.data.local.db.entity.DownloadEntity.toVideo(): Video = Video
     channel = Channel(id = "", name = channelName, avatarUrl = ""),
     durationSeconds = 0L,
     viewCount = 0L,
-    publishedTimeText = "Đã tải xuống",
+    publishedTimeText = if (status == 1) "Đang tải $progressPercent%" else if (status == 2) "Ngoại tuyến" else "Lỗi tải",
     thumbnailUrl = thumbnailUrl
 )
 

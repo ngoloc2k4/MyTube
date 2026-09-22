@@ -146,4 +146,23 @@
     <string name="btn_cancel">Cancel</string>
     <string name="listenbrainz_title">ListenBrainz Scrobbling</string>
     <string name="listenbrainz_desc">Sync music listening history to open-source ListenBrainz server</string>
+
+    <!-- Offline Downloads -->
+    <string name="download_quality_title">Download Options</string>
+    <string name="download_quality_desc">Choose format and quality</string>
+    <string name="download_audio_desc">Audio only • M4A / AAC</string>
+    <string name="download_video_desc">MP4 Video • Muxed with audio</string>
+    <string name="download_cancel_title">Cancel download?</string>
+    <string name="download_cancel_msg">Are you sure you want to cancel this download?</string>
+    <string name="download_cancel_action">Cancel download</string>
+    <string name="download_delete_title">Offline Video</string>
+    <string name="download_delete_msg">This video is saved to offline storage.</string>
+    <string name="download_delete_action">Delete download</string>
+    <string name="download_status_downloading">Downloading %1$d%%</string>
+    <string name="download_status_completed">Downloaded</string>
+    <string name="downloads_offline_title">Offline Downloads</string>
+    <string name="downloads_offline_empty_title">No offline downloads yet</string>
+    <string name="downloads_offline_empty_desc">Download your favorite videos or songs to enjoy smooth playback without an Internet connection</string>
+    <string name="download_format_audio">Audio (M4A)</string>
+    <string name="download_format_video">Video (MP4)</string>
 </resources>

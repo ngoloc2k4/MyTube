@@ -146,4 +146,23 @@
     <string name="btn_cancel">Hủy</string>
     <string name="listenbrainz_title">Đồng bộ ListenBrainz</string>
     <string name="listenbrainz_desc">Gửi lịch sử nghe nhạc lên máy chủ mã nguồn mở ListenBrainz</string>
+
+    <!-- Offline Downloads -->
+    <string name="download_quality_title">Tùy chọn tải xuống</string>
+    <string name="download_quality_desc">Chọn định dạng và chất lượng</string>
+    <string name="download_audio_desc">Chỉ tải âm thanh • M4A / AAC</string>
+    <string name="download_video_desc">Video MP4 • Tải &amp; gộp âm thanh</string>
+    <string name="download_cancel_title">Hủy tải xuống?</string>
+    <string name="download_cancel_msg">Bạn có chắc muốn hủy tiến trình tải này không?</string>
+    <string name="download_cancel_action">Hủy tải</string>
+    <string name="download_delete_title">Video ngoại tuyến</string>
+    <string name="download_delete_msg">Tệp này đã được lưu trong bộ nhớ ngoại tuyến của thiết bị.</string>
+    <string name="download_delete_action">Xóa bản tải</string>
+    <string name="download_status_downloading">Đang tải %1$d%%</string>
+    <string name="download_status_completed">Đã tải</string>
+    <string name="downloads_offline_title">Tải xuống ngoại tuyến</string>
+    <string name="downloads_offline_empty_title">Chưa có nội dung tải xuống</string>
+    <string name="downloads_offline_empty_desc">Tải video hoặc bài hát yêu thích để phát mượt mà ngay cả khi không có kết nối Internet</string>
+    <string name="download_format_audio">Âm thanh (M4A)</string>
+    <string name="download_format_video">Video (MP4)</string>
 </resources>

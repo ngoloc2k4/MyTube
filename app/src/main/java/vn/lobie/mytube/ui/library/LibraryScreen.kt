@@ -8,13 +8,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlaylistPlay
-import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.graphics.Color
+import vn.lobie.mytube.data.download.DownloadManager
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +42,7 @@ fun LibraryScreen(
 
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
+    var deleteDownloadCandidate by remember { mutableStateOf<vn.lobie.mytube.data.local.db.entity.DownloadEntity?>(null) }
 
     val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
     val chunkedLikedVideos = remember(likedVideos) { likedVideos.chunked(2) }
@@ -117,6 +114,38 @@ fun LibraryScreen(
         )
     }
 
+    deleteDownloadCandidate?.let { candidate ->
+        AlertDialog(
+            onDismissRequest = { deleteDownloadCandidate = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = { Text(stringResource(R.string.download_cancel_title)) },
+            text = { Text("Bạn có chắc muốn xóa bản tải xuống \"${candidate.title}\" không?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteDownload(candidate.videoId)
+                        deleteDownloadCandidate = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteDownloadCandidate = null }) {
+                    Text(stringResource(R.string.cancel_action))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -141,6 +170,7 @@ fun LibraryScreen(
         ) {
             // Downloads Section Header
             item {
+                val totalBytes = remember(downloads) { downloads.sumOf { it.fileSizeBytes } }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -157,13 +187,13 @@ fun LibraryScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Video đã tải xuống",
+                            text = stringResource(R.string.downloads_offline_title),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                     if (downloads.isNotEmpty()) {
                         Text(
-                            text = "${downloads.size} video",
+                            text = "${downloads.size} mục • ${DownloadManager.formatFileSize(totalBytes)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -171,32 +201,71 @@ fun LibraryScreen(
                 }
             }
 
-            // Downloads Horizontal List
+            // Downloads Content (Empty Card or Horizontal Carousel)
             item {
                 if (downloads.isEmpty()) {
-                    Text(
-                        text = "Chưa có video nào được tải về ngoại tuyến",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.downloads_offline_empty_title),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.downloads_offline_empty_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 } else {
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(downloads, key = { it.videoId }) { item ->
                             val video = item.toVideo()
+                            val isAudio = item.format.lowercase() in listOf("m4a", "mp3", "aac")
                             Column(
                                 modifier = Modifier
-                                    .width(160.dp)
+                                    .width(170.dp)
                                     .clickable { onVideoClick(video) }
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .aspectRatio(16f / 9f)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                                 ) {
                                     AsyncImage(
@@ -206,40 +275,116 @@ fun LibraryScreen(
                                         modifier = Modifier.fillMaxSize()
                                     )
 
-                                    if (item.status == 1) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f)),
-                                            contentAlignment = Alignment.Center
+                                    // Format / Quality Badge (Top-Start)
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color.Black.copy(alpha = 0.72f),
+                                        modifier = Modifier
+                                            .align(Alignment.TopStart)
+                                            .padding(6.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                         ) {
+                                            Icon(
+                                                imageVector = if (isAudio) Icons.Default.MusicNote else Icons.Default.Movie,
+                                                contentDescription = null,
+                                                tint = if (isAudio) MaterialTheme.colorScheme.secondary else Color.White,
+                                                modifier = Modifier.size(11.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
                                             Text(
-                                                text = "${item.progressPercent}%",
-                                                color = androidx.compose.ui.graphics.Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp
+                                                text = if (isAudio) "M4A" else item.quality.ifBlank { "720p" },
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
 
+                                    // File Size Badge (Bottom-End)
+                                    if (item.status == 2 && item.fileSizeBytes > 0) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color.Black.copy(alpha = 0.72f),
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(6.dp)
+                                        ) {
+                                            Text(
+                                                text = DownloadManager.formatFileSize(item.fileSizeBytes),
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Downloading Progress Overlay
+                                    if (item.status == 1) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.55f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    progress = { item.progressPercent / 100f },
+                                                    modifier = Modifier.size(26.dp),
+                                                    strokeWidth = 2.5.dp,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "${item.progressPercent}%",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Delete Button (Top-End)
                                     IconButton(
-                                        onClick = { viewModel.deleteDownload(item.videoId) },
+                                        onClick = { deleteDownloadCandidate = item },
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
-                                            .size(28.dp)
+                                            .padding(4.dp)
+                                            .size(26.dp)
                                             .background(
-                                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
-                                                RoundedCornerShape(4.dp)
+                                                Color.Black.copy(alpha = 0.65f),
+                                                CircleShape
                                             )
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = "Xóa",
-                                            tint = androidx.compose.ui.graphics.Color.White,
-                                            modifier = Modifier.size(16.dp)
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
                                         )
                                     }
                                 }
+
+                                // Linear Progress Indicator when downloading
+                                if (item.status == 1) {
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    LinearProgressIndicator(
+                                        progress = { item.progressPercent / 100f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(3.dp)
+                                            .clip(RoundedCornerShape(1.5.dp)),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
                                     text = video.title,
@@ -248,9 +393,13 @@ fun LibraryScreen(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = if (item.status == 1) "Đang tải..." else item.channelName.ifBlank { "Ngoại tuyến" },
+                                    text = when (item.status) {
+                                        1 -> "Đang tải (${item.progressPercent}%)"
+                                        2 -> item.channelName.ifBlank { "Ngoại tuyến" }
+                                        else -> "Tải thất bại"
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = if (item.status == 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1
                                 )
                             }

@@ -58,3 +58,11 @@
 - [x] Thẻ thông tin bài hát (EnrichedMusicBanner) và hộp thoại tiểu sử nghệ sĩ từ Wikipedia / MusicBrainz
 - [x] Đồng bộ nghe nhạc ListenBrainz (Scrobbling) với User Token cá nhân
 - [x] Thuật toán gợi ý cá nhân hóa 100% cục bộ (Local Recommendation Engine) dựa trên lịch sử xem on-device
+
+## Giai đoạn Cải tiến 5: Offline Media Engine & Download Service Hoàn thiện
+- [x] Tích hợp bộ ghép luồng gốc Android `MediaMuxer` + `MediaExtractor` tự động gộp video và audio riêng biệt (DASH streams) thành tệp MP4 chuẩn không cần phụ thuộc thư viện ngoài
+- [x] Hỗ trợ tải chỉ âm thanh (Audio-only M4A/MP3) cho nhu cầu nghe nhạc ngoại tuyến và chạy ngầm
+- [x] Theo dõi tiến trình tải trực tiếp (Live Progress Tracking) qua StateFlow và Room DAO
+- [x] Hộp thoại lựa chọn chất lượng tải xuống (1080p, 720p, 480p, 360p, Audio M4A) ngay trên FullPlayer
+- [x] Nâng cấp mục Tải xuống ngoại tuyến trong `LibraryScreen` với badge chất lượng/định dạng, dung lượng file, thanh tiến trình live, phát ngoại tuyến tức thì không cần mạng, và hộp thoại xác nhận xóa
+
