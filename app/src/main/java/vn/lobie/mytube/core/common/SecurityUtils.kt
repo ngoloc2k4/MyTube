@@ -93,10 +93,10 @@ object SecurityUtils {
             val packageName = context.packageName
             val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val signingInfo = pm.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo
-                if (signingInfo.hasMultipleSigners()) {
+                if (signingInfo?.hasMultipleSigners() == true) {
                     signingInfo.apkContentsSigners
                 } else {
-                    signingInfo.signingCertificateHistory
+                    signingInfo?.signingCertificateHistory
                 }
             } else {
                 @Suppress("DEPRECATION")
