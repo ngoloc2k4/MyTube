@@ -58,7 +58,7 @@ class NewPipeYouTubeRepository(
 
     private fun updateNewPipeLocalization() {
         try {
-            val loc = Localization.fromLocalizationCode(language)
+            val loc = Localization.fromLocalizationCode(language).orElse(Localization.DEFAULT)
             val cc = ContentCountry(region)
             NewPipe.init(downloader, loc, cc)
             Log.d("NewPipeRepo", "NewPipe initialized with region=$region, language=$language")
@@ -72,7 +72,8 @@ class NewPipeYouTubeRepository(
             val kiosk = ServiceList.YouTube.kioskList.defaultKioskExtractor
             try {
                 kiosk.forceContentCountry(ContentCountry(region))
-                kiosk.forceLocalization(Localization.fromLocalizationCode(language))
+                val loc = Localization.fromLocalizationCode(language).orElse(Localization.DEFAULT)
+                kiosk.forceLocalization(loc)
             } catch (e: Exception) {
                 Log.w("NewPipeRepo", "Unable to set forced content country on kiosk: ${e.message}")
             }
@@ -88,7 +89,8 @@ class NewPipeYouTubeRepository(
             val searchExtractor = ServiceList.YouTube.getSearchExtractor(query)
             try {
                 searchExtractor.forceContentCountry(ContentCountry(region))
-                searchExtractor.forceLocalization(Localization.fromLocalizationCode(language))
+                val loc = Localization.fromLocalizationCode(language).orElse(Localization.DEFAULT)
+                searchExtractor.forceLocalization(loc)
             } catch (e: Exception) {
                 Log.w("NewPipeRepo", "Unable to set forced content country on search: ${e.message}")
             }

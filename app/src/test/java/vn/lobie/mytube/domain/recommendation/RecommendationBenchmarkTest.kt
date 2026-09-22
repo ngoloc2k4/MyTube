@@ -35,7 +35,8 @@ class RecommendationBenchmarkTest {
             ),
             durationSeconds = durationSeconds,
             viewCount = viewCount,
-            publishedTimeText = "3 days ago"
+            publishedTimeText = "3 days ago",
+            thumbnailUrl = "https://picsum.photos/seed/$id/320/180"
         )
     }
 

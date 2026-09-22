@@ -131,9 +131,9 @@ class RecommendationScorer {
         // 2. Channel Affinity Score
         val channelScore = min(3.0, (channelAffinities[channelLower] ?: 0.0) * 0.8)
 
-        // 3. Recency / Freshness Bonus (from view count / verified channel)
+        // 3. Recency / Freshness Bonus (from view count / popular channel status)
         var recencyScore = 0.0
-        if (video.channel.isVerified) {
+        if (video.viewCount > 500_000L || video.channel.subscriberCountText.isNotBlank()) {
             recencyScore += 0.2
         }
 
