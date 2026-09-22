@@ -258,7 +258,8 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val listenBrainzToken: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[LISTENBRAINZ_TOKEN] ?: ""
+        val raw = preferences[LISTENBRAINZ_TOKEN] ?: ""
+        if (raw.isNotBlank()) vn.lobie.mytube.core.common.CryptoManager.decrypt(raw) else ""
     }
 
     suspend fun setListenBrainzEnabled(enabled: Boolean) {
@@ -268,8 +269,10 @@ class SettingsDataStore(private val context: Context) {
     }
 
     suspend fun setListenBrainzToken(token: String) {
+        val trimmed = token.trim()
+        val encrypted = if (trimmed.isNotBlank()) vn.lobie.mytube.core.common.CryptoManager.encrypt(trimmed) else ""
         context.dataStore.edit { preferences ->
-            preferences[LISTENBRAINZ_TOKEN] = token.trim()
+            preferences[LISTENBRAINZ_TOKEN] = encrypted
         }
     }
 }
