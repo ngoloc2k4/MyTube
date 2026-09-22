@@ -65,7 +65,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import vn.lobie.mytube.R
+import vn.lobie.mytube.domain.model.ArtistInfo
 import vn.lobie.mytube.domain.model.Comment
+import vn.lobie.mytube.domain.model.MusicMetadata
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.ui.components.CompactVideoCard
 import vn.lobie.mytube.ui.components.VideoCard
@@ -132,6 +134,7 @@ fun FullPlayer(
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var showChaptersDialog by remember { mutableStateOf(false) }
     var showCommentsBottomSheet by remember { mutableStateOf(false) }
+    var showArtistBioDialog by remember { mutableStateOf(false) }
     var isQueueExpanded by remember { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
@@ -393,6 +396,13 @@ fun FullPlayer(
                             )
                         }
                     }
+
+                    // Enriched Music Metadata Banner (MusicBrainz & Cover Art Archive)
+                    EnrichedMusicBanner(
+                        metadata = uiState.musicMetadata,
+                        artistInfo = uiState.artistInfo,
+                        onShowArtistBio = { showArtistBioDialog = true }
+                    )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
@@ -1054,6 +1064,13 @@ fun FullPlayer(
                                 )
                             }
                         }
+
+                        // Enriched Music Metadata Banner (MusicBrainz & Cover Art Archive)
+                        EnrichedMusicBanner(
+                            metadata = uiState.musicMetadata,
+                            artistInfo = uiState.artistInfo,
+                            onShowArtistBio = { showArtistBioDialog = true }
+                        )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1813,6 +1830,13 @@ fun FullPlayer(
             onDismiss = { showCommentsBottomSheet = false }
         )
     }
+
+    if (showArtistBioDialog && uiState.artistInfo != null) {
+        ArtistBioDialog(
+            artistInfo = uiState.artistInfo,
+            onDismiss = { showArtistBioDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -2274,7 +2298,7 @@ private fun VideoPlayerSurface(
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
-                            model = uiState.currentVideo?.thumbnailUrl,
+                            model = uiState.musicMetadata?.coverArtUrl?.ifBlank { null } ?: uiState.currentVideo?.thumbnailUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -3425,4 +3449,130 @@ private fun CommentItem(
         }
     }
 }
+
+@Composable
+private fun EnrichedMusicBanner(
+    metadata: MusicMetadata?,
+    artistInfo: ArtistInfo?,
+    onShowArtistBio: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (metadata == null || (metadata.albumTitle.isBlank() && metadata.releaseYear.isBlank() && metadata.genres.isEmpty())) {
+        return
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                if (metadata.albumTitle.isNotBlank()) {
+                    Text(
+                        text = metadata.albumTitle + if (metadata.releaseYear.isNotBlank()) " (${metadata.releaseYear})" else "",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (metadata.genres.isNotEmpty()) {
+                    Text(
+                        text = metadata.genres.take(3).joinToString(" • "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (artistInfo != null && artistInfo.biography.isNotBlank()) {
+                Spacer(modifier = Modifier.width(6.dp))
+                FilledTonalButton(
+                    onClick = onShowArtistBio,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Text(
+                        text = "Tiểu sử",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistBioDialog(
+    artistInfo: ArtistInfo,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = artistInfo.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (artistInfo.country.isNotBlank() || artistInfo.lifeSpan.isNotBlank()) {
+                        val sub = listOfNotNull(
+                            artistInfo.country.ifBlank { null },
+                            artistInfo.lifeSpan.ifBlank { null }
+                        ).joinToString(" • ")
+                        Text(
+                            text = sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = artistInfo.biography,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_ok))
+            }
+        }
+    )
+}
+
 

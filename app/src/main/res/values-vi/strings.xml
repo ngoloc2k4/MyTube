@@ -142,4 +142,8 @@
     <string name="backup_restore_desc">Khôi phục dữ liệu từ tệp sao lưu MyTube JSON</string>
     <string name="import_subscriptions">Nhập kênh đăng ký</string>
     <string name="import_subscriptions_desc">Nhập kênh từ Google Takeout (CSV) hoặc NewPipe (JSON)</string>
+    <string name="btn_ok">Đồng ý</string>
+    <string name="btn_cancel">Hủy</string>
+    <string name="listenbrainz_title">Đồng bộ ListenBrainz</string>
+    <string name="listenbrainz_desc">Gửi lịch sử nghe nhạc lên máy chủ mã nguồn mở ListenBrainz</string>
 </resources>

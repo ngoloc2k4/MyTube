@@ -33,6 +33,8 @@ class SettingsDataStore(private val context: Context) {
         val AUDIO_NORMALIZATION_ENABLED = booleanPreferencesKey("audio_normalization_enabled")
         val CROSSFADE_DURATION_SECONDS = intPreferencesKey("crossfade_duration_seconds")
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
+        val LISTENBRAINZ_ENABLED = booleanPreferencesKey("listenbrainz_enabled")
+        val LISTENBRAINZ_TOKEN = stringPreferencesKey("listenbrainz_token")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -248,6 +250,26 @@ class SettingsDataStore(private val context: Context) {
     suspend fun clearSearchHistory() {
         context.dataStore.edit { preferences ->
             preferences[SEARCH_HISTORY] = ""
+        }
+    }
+
+    val listenBrainzEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[LISTENBRAINZ_ENABLED] ?: false
+    }
+
+    val listenBrainzToken: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[LISTENBRAINZ_TOKEN] ?: ""
+    }
+
+    suspend fun setListenBrainzEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[LISTENBRAINZ_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setListenBrainzToken(token: String) {
+        context.dataStore.edit { preferences ->
+            preferences[LISTENBRAINZ_TOKEN] = token.trim()
         }
     }
 }

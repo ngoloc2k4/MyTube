@@ -142,4 +142,8 @@
     <string name="backup_restore_desc">Restore data from a MyTube JSON backup file</string>
     <string name="import_subscriptions">Import Subscriptions</string>
     <string name="import_subscriptions_desc">Import channels from Google Takeout (CSV) or NewPipe (JSON)</string>
+    <string name="btn_ok">OK</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="listenbrainz_title">ListenBrainz Scrobbling</string>
+    <string name="listenbrainz_desc">Sync music listening history to open-source ListenBrainz server</string>
 </resources>

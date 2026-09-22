@@ -60,6 +60,10 @@ fun SettingsScreen(
     val returnDislikeEnabled by viewModel.returnDislikeEnabled.collectAsState()
     val audioNormalizationEnabled by viewModel.audioNormalizationEnabled.collectAsState()
     val crossfadeDurationSeconds by viewModel.crossfadeDurationSeconds.collectAsState()
+    val listenBrainzEnabled by viewModel.listenBrainzEnabled.collectAsState()
+    val listenBrainzToken by viewModel.listenBrainzToken.collectAsState()
+    val listenBrainzValidation by viewModel.listenBrainzValidation.collectAsState()
+    val isValidatingToken by viewModel.isValidatingToken.collectAsState()
 
     var showQualityDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
@@ -74,6 +78,7 @@ fun SettingsScreen(
     var showInvidiousDialog by remember { mutableStateOf(false) }
     var showAddInstanceDialog by remember { mutableStateOf(false) }
     var showDebugLogsDialog by remember { mutableStateOf(false) }
+    var showListenBrainzDialog by remember { mutableStateOf(false) }
     var newInstanceInput by remember { mutableStateOf("") }
 
     val context = LocalContext.current
@@ -350,6 +355,33 @@ fun SettingsScreen(
                     subtitle = "Xóa toàn bộ dữ liệu lịch sử xem đã lưu cục bộ",
                     onClick = { showClearHistoryDialog = true }
                 )
+            }
+
+            // Music Ecosystem & Scrobbling Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                SectionHeader("Âm nhạc & Dữ liệu mở")
+            }
+
+            item {
+                SettingSwitchItem(
+                    icon = Icons.Default.MusicNote,
+                    title = "Đồng bộ ListenBrainz (Scrobbling)",
+                    subtitle = if (listenBrainzToken.isNotBlank()) "Đã liên kết token cá nhân" else "Gửi lịch sử nghe nhạc lên máy chủ mã nguồn mở ListenBrainz",
+                    checked = listenBrainzEnabled,
+                    onCheckedChange = { viewModel.setListenBrainzEnabled(it) }
+                )
+            }
+
+            if (listenBrainzEnabled) {
+                item {
+                    SettingClickableItem(
+                        icon = Icons.Default.Lock,
+                        title = "ListenBrainz User Token",
+                        subtitle = if (listenBrainzToken.isNotBlank()) "••••••••" + listenBrainzToken.takeLast(6) else "Nhấn để nhập token cá nhân",
+                        onClick = { showListenBrainzDialog = true }
+                    )
+                }
             }
 
             // Diagnostics & About Section
@@ -825,6 +857,93 @@ fun SettingsScreen(
             onDismiss = { showDebugLogsDialog = false }
         )
     }
+
+    if (showListenBrainzDialog) {
+        ListenBrainzTokenDialog(
+            currentToken = listenBrainzToken,
+            validationResult = listenBrainzValidation,
+            isValidating = isValidatingToken,
+            onSaveToken = { token ->
+                viewModel.setListenBrainzToken(token)
+            },
+            onValidate = { token ->
+                viewModel.validateListenBrainzToken(token)
+            },
+            onDismiss = { showListenBrainzDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun ListenBrainzTokenDialog(
+    currentToken: String,
+    validationResult: String?,
+    isValidating: Boolean,
+    onSaveToken: (String) -> Unit,
+    onValidate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var input by remember { mutableStateOf(currentToken) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cấu hình ListenBrainz") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Nhập User Token từ tài khoản ListenBrainz (listenbrainz.org/profile) để tự động scrobble khi nghe nhạc.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text("User Token") },
+                    placeholder = { Text("vd: 5b4e8...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (validationResult != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = validationResult,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (validationResult.startsWith("Hợp lệ")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { onValidate(input) },
+                        enabled = input.isNotBlank() && !isValidating
+                    ) {
+                        if (isValidating) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text("Kiểm tra Token")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                onSaveToken(input)
+                onDismiss()
+            }) {
+                Text(stringResource(R.string.btn_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.btn_cancel))
+            }
+        }
+    )
 }
 
 @Composable

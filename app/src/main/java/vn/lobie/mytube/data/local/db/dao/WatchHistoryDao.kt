@@ -30,6 +30,9 @@ interface WatchHistoryDao {
     @Query("SELECT category FROM watch_history WHERE category != '' GROUP BY category ORDER BY COUNT(*) DESC LIMIT :limit")
     suspend fun getTopCategories(limit: Int): List<String>
 
+    @Query("SELECT channelName FROM watch_history WHERE channelName != '' GROUP BY channelName ORDER BY COUNT(*) DESC LIMIT :limit")
+    suspend fun getTopChannels(limit: Int): List<String>
+
     @Query("DELETE FROM watch_history WHERE videoId = :videoId")
     suspend fun deleteById(videoId: String)
 

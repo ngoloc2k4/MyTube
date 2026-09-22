@@ -60,6 +60,8 @@ data class PlayerUiState(
     val likesCount: Long? = null,
     val currentSourceName: String? = null,
     val downloadStatus: Int = 0,
+    val musicMetadata: vn.lobie.mytube.domain.model.MusicMetadata? = null,
+    val artistInfo: vn.lobie.mytube.domain.model.ArtistInfo? = null,
     val errorMessage: String? = null
 ) {
     val progress: Float

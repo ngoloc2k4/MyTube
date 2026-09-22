@@ -49,7 +49,8 @@ class PlayerViewModel(
     private val getStreamWithFallbackUseCase: vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase = vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase(repository),
     private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository),
     private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository),
-    private val getCommentsUseCase: vn.lobie.mytube.domain.usecase.GetCommentsUseCase = vn.lobie.mytube.domain.usecase.GetCommentsUseCase(repository)
+    private val getCommentsUseCase: vn.lobie.mytube.domain.usecase.GetCommentsUseCase = vn.lobie.mytube.domain.usecase.GetCommentsUseCase(repository),
+    private val getMusicMetadataUseCase: vn.lobie.mytube.domain.usecase.GetMusicMetadataUseCase = vn.lobie.mytube.domain.usecase.GetMusicMetadataUseCase()
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -58,6 +59,9 @@ class PlayerViewModel(
 
     private val database = MyTubeDatabase.getInstance(application)
     private val settingsDataStore = SettingsDataStore(application)
+    private val scrobbleListenUseCase = vn.lobie.mytube.domain.usecase.ScrobbleListenUseCase(settingsDataStore)
+    private var hasScrobbledCurrentVideo = false
+    private var musicMetadataJob: Job? = null
     private var likeObservationJob: Job? = null
     private var subObservationJob: Job? = null
     private var downloadObservationJob: Job? = null
@@ -278,12 +282,29 @@ class PlayerViewModel(
                 selectedSubtitle = null,
                 dislikesCount = null,
                 likesCount = null,
-                currentSourceName = null
+                currentSourceName = null,
+                musicMetadata = null,
+                artistInfo = null
             )
         }
 
         _comments.value = emptyList()
         loadComments(video.id)
+
+        musicMetadataJob?.cancel()
+        hasScrobbledCurrentVideo = false
+        // Fetch enriched MusicBrainz & Cover Art Archive metadata asynchronously
+        musicMetadataJob = viewModelScope.launch {
+            val metaRes = getMusicMetadataUseCase(video.title, video.channel.name)
+            metaRes.onSuccess { meta ->
+                _uiState.update { it.copy(musicMetadata = meta) }
+                val artistName = meta.artistName.ifBlank { video.channel.name }
+                val artistRes = getMusicMetadataUseCase.getArtistInfo(artistName, meta.artistMbid.ifBlank { null })
+                artistRes.onSuccess { artist ->
+                    _uiState.update { it.copy(artistInfo = artist) }
+                }
+            }
+        }
 
         // Fetch SponsorBlock skip segments asynchronously
         sponsorBlockJob = viewModelScope.launch {
@@ -1055,6 +1076,20 @@ class PlayerViewModel(
                         if (remainingToTrackEnd in 0..crossfadeMs) {
                             val fadeVol = (remainingToTrackEnd.toFloat() / crossfadeMs.toFloat()).coerceIn(0.1f, 1.0f)
                             p.volume = fadeVol
+                        }
+                    }
+
+                    // ListenBrainz Scrobbling (khi bài hát được nghe >= 50% thời lượng hoặc >= 4 phút)
+                    if (!hasScrobbledCurrentVideo && dur > 30_000L && (pos >= dur / 2 || pos >= 240_000L)) {
+                        hasScrobbledCurrentVideo = true
+                        state.currentVideo?.let { v ->
+                            val meta = state.musicMetadata
+                            val artist = if (!meta?.artistName.isNullOrBlank()) meta.artistName else v.channel.name
+                            val track = if (!meta?.trackTitle.isNullOrBlank()) meta.trackTitle else v.title
+                            val album = meta?.albumTitle ?: ""
+                            viewModelScope.launch {
+                                scrobbleListenUseCase(artist, track, album)
+                            }
                         }
                     }
 

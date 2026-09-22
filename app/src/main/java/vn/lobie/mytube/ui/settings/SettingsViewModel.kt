@@ -142,6 +142,49 @@ class SettingsViewModel(
     val uiMode = settingsDataStore.uiMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsDataStore.UI_MODE_AUTO)
 
+    val listenBrainzEnabled = settingsDataStore.listenBrainzEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val listenBrainzToken = settingsDataStore.listenBrainzToken
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    private val _listenBrainzValidation = MutableStateFlow<String?>(null)
+    val listenBrainzValidation: StateFlow<String?> = _listenBrainzValidation.asStateFlow()
+
+    private val _isValidatingToken = MutableStateFlow(false)
+    val isValidatingToken: StateFlow<Boolean> = _isValidatingToken.asStateFlow()
+
+    fun setListenBrainzEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setListenBrainzEnabled(enabled)
+        }
+    }
+
+    fun setListenBrainzToken(token: String) {
+        viewModelScope.launch {
+            settingsDataStore.setListenBrainzToken(token)
+            validateListenBrainzToken(token)
+        }
+    }
+
+    fun validateListenBrainzToken(token: String) {
+        if (token.isBlank()) {
+            _listenBrainzValidation.value = null
+            return
+        }
+        viewModelScope.launch {
+            _isValidatingToken.value = true
+            val client = vn.lobie.mytube.data.remote.listenbrainz.ListenBrainzClient()
+            val result = client.validateToken(token)
+            result.onSuccess { userName ->
+                _listenBrainzValidation.value = "Hợp lệ (User: $userName)"
+            }.onFailure { err ->
+                _listenBrainzValidation.value = "Lỗi: ${err.message}"
+            }
+            _isValidatingToken.value = false
+        }
+    }
+
     private val _currentCacheBytes = MutableStateFlow<Long>(0)
     val currentCacheBytes: StateFlow<Long> = _currentCacheBytes.asStateFlow()
 
