@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -31,12 +33,17 @@ android {
     signingConfigs {
         create("release") {
             val envFile = rootProject.file(".env")
-            val envProps = java.util.Properties()
+            val envProps = Properties()
             if (envFile.exists()) {
-                envFile.bufferedReader().use { envProps.load(it) }
+                envFile.inputStream().use { envProps.load(it) }
             }
-            fun getEnvOrProp(key: String): String? =
-                System.getenv(key) ?: envProps.getProperty(key)?.takeIf { it.isNotBlank() } ?: project.findProperty(key) as? String
+            fun getEnvOrProp(key: String): String? {
+                val sysEnv = System.getenv(key)
+                if (!sysEnv.isNullOrBlank()) return sysEnv
+                val prop = envProps.getProperty(key)
+                if (!prop.isNullOrBlank()) return prop
+                return project.findProperty(key) as? String
+            }
 
             val keystorePath = getEnvOrProp("KEYSTORE_FILE")
             val keystoreFile = keystorePath?.let { file(it) }
