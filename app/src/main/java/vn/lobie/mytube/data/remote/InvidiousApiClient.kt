@@ -11,8 +11,8 @@ import java.util.concurrent.TimeUnit
 
 class InvidiousApiClient(
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
         .build()
 ) {
     private val json = Json {

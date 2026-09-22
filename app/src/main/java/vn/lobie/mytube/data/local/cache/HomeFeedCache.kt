@@ -43,38 +43,54 @@ object HomeFeedCache {
         }
     }
 
+    fun loadHomeFeedSync(context: Context): List<Video> {
+        try {
+            val file = File(context.cacheDir, CACHE_FILE_NAME)
+            if (!file.exists()) return emptyList()
+            val text = file.readText()
+            if (text.isBlank()) return emptyList()
+            return parseVideosFromJson(text)
+        } catch (e: Exception) {
+            Log.e("HomeFeedCache", "Failed to synchronously load home feed cache", e)
+            return emptyList()
+        }
+    }
+
+    private fun parseVideosFromJson(text: String): List<Video> {
+        val jsonArray = JSONArray(text)
+        val result = mutableListOf<Video>()
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            val chObj = obj.optJSONObject("channel")
+            val channel = Channel(
+                id = chObj?.optString("id").orEmpty(),
+                name = chObj?.optString("name").orEmpty(),
+                avatarUrl = chObj?.optString("avatarUrl").orEmpty(),
+                subscriberCountText = chObj?.optString("subscriberCountText").orEmpty()
+            )
+            result.add(
+                Video(
+                    id = obj.getString("id"),
+                    title = obj.optString("title"),
+                    channel = channel,
+                    durationSeconds = obj.optLong("durationSeconds", 0L),
+                    viewCount = obj.optLong("viewCount", 0L),
+                    publishedTimeText = obj.optString("publishedTimeText"),
+                    thumbnailUrl = obj.optString("thumbnailUrl"),
+                    description = obj.optString("description")
+                )
+            )
+        }
+        return result
+    }
+
     suspend fun loadHomeFeed(context: Context): List<Video> = withContext(Dispatchers.IO) {
         try {
             val file = File(context.cacheDir, CACHE_FILE_NAME)
             if (!file.exists()) return@withContext emptyList()
             val text = file.readText()
             if (text.isBlank()) return@withContext emptyList()
-
-            val jsonArray = JSONArray(text)
-            val result = mutableListOf<Video>()
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val chObj = obj.optJSONObject("channel")
-                val channel = Channel(
-                    id = chObj?.optString("id").orEmpty(),
-                    name = chObj?.optString("name").orEmpty(),
-                    avatarUrl = chObj?.optString("avatarUrl").orEmpty(),
-                    subscriberCountText = chObj?.optString("subscriberCountText").orEmpty()
-                )
-                result.add(
-                    Video(
-                        id = obj.getString("id"),
-                        title = obj.optString("title"),
-                        channel = channel,
-                        durationSeconds = obj.optLong("durationSeconds", 0L),
-                        viewCount = obj.optLong("viewCount", 0L),
-                        publishedTimeText = obj.optString("publishedTimeText"),
-                        thumbnailUrl = obj.optString("thumbnailUrl"),
-                        description = obj.optString("description")
-                    )
-                )
-            }
-            result
+            parseVideosFromJson(text)
         } catch (e: Exception) {
             Log.e("HomeFeedCache", "Failed to load home feed cache", e)
             emptyList()

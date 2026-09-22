@@ -59,18 +59,22 @@ class LocalRecommendationEngine(
             topChannels.forEach { queries.add(it) }
             topKeywords.forEach { queries.add(it) }
 
-            // Concurrent candidate retrieval
-            val deferredQueries = queries.take(4).map { query ->
+            // Concurrent candidate retrieval: bounded to top 2 queries with strict per-query timeout
+            val deferredQueries = queries.take(2).map { query ->
                 async {
-                    repository.search(query).getOrNull()?.mapNotNull { item ->
-                        if (item is SearchResult.VideoItem) item.video else null
+                    kotlinx.coroutines.withTimeoutOrNull(4000L) {
+                        repository.search(query).getOrNull()?.mapNotNull { item ->
+                            if (item is SearchResult.VideoItem) item.video else null
+                        }
                     } ?: emptyList()
                 }
             }
 
             // Also fetch regional trending to inject exploration & serendipity
             val deferredTrending = async {
-                repository.getTrendingVideos().getOrDefault(emptyList())
+                kotlinx.coroutines.withTimeoutOrNull(4500L) {
+                    repository.getTrendingVideos().getOrDefault(emptyList())
+                } ?: emptyList()
             }
 
             val queryResults = deferredQueries.awaitAll().flatten()

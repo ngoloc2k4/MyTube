@@ -55,15 +55,31 @@ class HomeViewModel(
     private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository)
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
+    companion object {
+        private var cachedHomeVideos: List<Video> = emptyList()
+    }
+
+    private val _uiState: MutableStateFlow<HomeUiState> = MutableStateFlow(
+        run {
+            if (cachedHomeVideos.isNotEmpty()) {
+                HomeUiState.Success(videos = cachedHomeVideos, selectedCategory = VideoCategory.ALL)
+            } else if (context != null) {
+                val diskCached = vn.lobie.mytube.data.local.cache.HomeFeedCache.loadHomeFeedSync(context)
+                if (diskCached.isNotEmpty()) {
+                    cachedHomeVideos = diskCached
+                    HomeUiState.Success(videos = diskCached, selectedCategory = VideoCategory.ALL)
+                } else {
+                    HomeUiState.Loading
+                }
+            } else {
+                HomeUiState.Loading
+            }
+        }
+    )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private val _searchFilter = MutableStateFlow(SearchFilter())
     val searchFilter: StateFlow<SearchFilter> = _searchFilter.asStateFlow()
-
-    companion object {
-        private var cachedHomeVideos: List<Video> = emptyList()
-    }
 
     val watchProgressMap: StateFlow<Map<String, Float>> = (database?.watchHistoryDao()?.getAll() ?: flowOf(emptyList()))
         .map { list ->
@@ -79,21 +95,6 @@ class HomeViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Instantaneous load from disk cache first if in-memory cache is empty
-        viewModelScope.launch {
-            if (cachedHomeVideos.isEmpty() && context != null) {
-                val diskCached = vn.lobie.mytube.data.local.cache.HomeFeedCache.loadHomeFeed(context)
-                if (diskCached.isNotEmpty() && _uiState.value is HomeUiState.Loading) {
-                    cachedHomeVideos = diskCached
-                    _uiState.value = HomeUiState.Success(
-                        videos = diskCached,
-                        selectedCategory = VideoCategory.ALL
-                    )
-                    Log.d("HomeViewModel", "Loaded ${diskCached.size} videos from persistent disk cache immediately")
-                }
-            }
-        }
-
         if (settingsDataStore != null) {
             viewModelScope.launch {
                 settingsDataStore.contentRegion.collect { region ->
