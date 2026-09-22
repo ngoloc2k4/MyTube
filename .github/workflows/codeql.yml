@@ -28,6 +28,16 @@ jobs:
         distribution: 'temurin'
         java-version: '21'
 
+    - name: Single Unified Gradle Cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: mytube-gradle-v1-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle*') }}
+        restore-keys: |
+          mytube-gradle-v1-
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
