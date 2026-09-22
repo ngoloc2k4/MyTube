@@ -10,6 +10,7 @@
     <string name="subscribed_button">Đã đăng ký</string>
     <string name="views_suffix">lượt xem</string>
     <string name="views_format">%1$s lượt xem</string>
+    <string name="views_billions">%.1f Tỷ</string>
     <string name="views_millions">%.1f Tr</string>
     <string name="views_thousands">%.1f N</string>
     <string name="minimize_player">Thu nhỏ trình phát</string>

@@ -25,6 +25,7 @@ data class Video(
     val formattedViews: String
         get() {
             return when {
+                viewCount >= 1_000_000_000 -> "%.1fB views".format(viewCount / 1_000_000_000.0)
                 viewCount >= 1_000_000 -> "%.1fM views".format(viewCount / 1_000_000.0)
                 viewCount >= 1_000 -> "%.1fK views".format(viewCount / 1_000.0)
                 else -> "$viewCount views"

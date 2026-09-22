@@ -7,8 +7,30 @@ import vn.lobie.mytube.R
 @Composable
 fun formatViews(views: Long): String {
     val countStr = when {
-        views >= 1_000_000 -> stringResource(R.string.views_millions, views / 1_000_000.0)
-        views >= 1_000 -> stringResource(R.string.views_thousands, views / 1_000.0)
+        views >= 1_000_000_000 -> {
+            val num = views / 1_000_000_000.0
+            if (num >= 100.0 || (views % 1_000_000_000 == 0L)) {
+                stringResource(R.string.views_billions, num).replace(".0", "").replace(",0", "")
+            } else {
+                stringResource(R.string.views_billions, num)
+            }
+        }
+        views >= 1_000_000 -> {
+            val num = views / 1_000_000.0
+            if (num >= 100.0 || (views % 1_000_000 == 0L)) {
+                stringResource(R.string.views_millions, num).replace(".0", "").replace(",0", "")
+            } else {
+                stringResource(R.string.views_millions, num)
+            }
+        }
+        views >= 1_000 -> {
+            val num = views / 1_000.0
+            if (num >= 100.0 || (views % 1_000 == 0L)) {
+                stringResource(R.string.views_thousands, num).replace(".0", "").replace(",0", "")
+            } else {
+                stringResource(R.string.views_thousands, num)
+            }
+        }
         views > 0 -> "$views"
         else -> "0"
     }
@@ -28,8 +50,21 @@ fun formatDuration(durationSeconds: Long): String {
 
 fun formatCompactNumber(count: Long): String {
     return when {
-        count >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", count / 1_000.0)
+        count >= 1_000_000_000 -> {
+            val num = count / 1_000_000_000.0
+            if (num >= 100.0 || (count % 1_000_000_000 == 0L)) "%.0fB".format(java.util.Locale.US, num)
+            else "%.1fB".format(java.util.Locale.US, num)
+        }
+        count >= 1_000_000 -> {
+            val num = count / 1_000_000.0
+            if (num >= 100.0 || (count % 1_000_000 == 0L)) "%.0fM".format(java.util.Locale.US, num)
+            else "%.1fM".format(java.util.Locale.US, num)
+        }
+        count >= 1_000 -> {
+            val num = count / 1_000.0
+            if (num >= 100.0 || (count % 1_000 == 0L)) "%.0fK".format(java.util.Locale.US, num)
+            else "%.1fK".format(java.util.Locale.US, num)
+        }
         count > 0 -> "$count"
         else -> ""
     }

@@ -10,6 +10,7 @@
     <string name="subscribed_button">Subscribed</string>
     <string name="views_suffix">views</string>
     <string name="views_format">%1$s views</string>
+    <string name="views_billions">%.1fB</string>
     <string name="views_millions">%.1fM</string>
     <string name="views_thousands">%.1fK</string>
     <string name="minimize_player">Minimize player</string>

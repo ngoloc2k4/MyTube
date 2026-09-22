@@ -198,18 +198,56 @@ object InnerTubeParser {
         }
     }
 
-    private fun parseViewCount(text: String): Long {
+    fun parseViewCount(text: String): Long {
+        if (text.isBlank()) return 0L
+
+        // Strip non-multiplier suffix words such as "lượt xem", "views", "Aufrufe", "visualizaciones", etc.
+        val cleaned = text
+            .replace("lượt xem", "", ignoreCase = true)
+            .replace("luot xem", "", ignoreCase = true)
+            .replace("views", "", ignoreCase = true)
+            .replace("view", "", ignoreCase = true)
+            .replace("Aufrufe", "", ignoreCase = true)
+            .replace("visualizaciones", "", ignoreCase = true)
+            .trim()
+
+        // Detect multiplier (Vietnamese & English standard multipliers)
+        // Note: Check billion / tỷ first, then million / triệu, then thousand / nghìn
         val multiplier = when {
-            text.contains("B", ignoreCase = true) -> 1_000_000_000.0
-            text.contains("M", ignoreCase = true) -> 1_000_000.0
-            text.contains("K", ignoreCase = true) -> 1_000.0
+            // Billion: "B", "Tỷ", "ty"
+            cleaned.contains("tỷ", ignoreCase = true) || cleaned.contains("ty", ignoreCase = true) ||
+                    Regex("""\b[bB]\b""").containsMatchIn(cleaned) || cleaned.endsWith("B", ignoreCase = true) -> 1_000_000_000.0
+
+            // Million: "M", "Tr", "Triệu", "trieu"
+            cleaned.contains("triệu", ignoreCase = true) || cleaned.contains("trieu", ignoreCase = true) ||
+                    cleaned.contains("tr", ignoreCase = true) ||
+                    Regex("""\b[mM]\b""").containsMatchIn(cleaned) || cleaned.endsWith("M", ignoreCase = true) -> 1_000_000.0
+
+            // Thousand: "K", "N", "Nghìn", "nghin", "ngàn", "ngan"
+            cleaned.contains("nghìn", ignoreCase = true) || cleaned.contains("nghin", ignoreCase = true) ||
+                    cleaned.contains("ngàn", ignoreCase = true) || cleaned.contains("ngan", ignoreCase = true) ||
+                    Regex("""\b[nN]\b""").containsMatchIn(cleaned) || cleaned.endsWith("N", ignoreCase = true) ||
+                    Regex("""\b[kK]\b""").containsMatchIn(cleaned) || cleaned.endsWith("K", ignoreCase = true) -> 1_000.0
+
             else -> 1.0
         }
-        val numStr = text.replace(",", "")
-            .replace("views", "", ignoreCase = true)
-            .trim()
-            .takeWhile { it.isDigit() || it == '.' }
-        val num = numStr.toDoubleOrNull() ?: 0.0
-        return (num * multiplier).toLong()
+
+        // Extract numerical component
+        val numMatch = Regex("""([\d]+(?:[.,]\d+)?)""").find(cleaned)
+        if (numMatch == null) return 0L
+
+        val rawNum = numMatch.groupValues[1]
+
+        // If multiplier is 1.0 (no unit like K, M, B, N, Tr), then comma/dot could be thousands separator e.g. "12,345" or "12.345"
+        val parsedNumber = if (multiplier == 1.0) {
+            val digitsOnly = rawNum.replace(".", "").replace(",", "")
+            digitsOnly.toDoubleOrNull() ?: 0.0
+        } else {
+            // With unit multiplier, comma or dot is decimal separator, e.g. "58,6" or "58.6"
+            val standardized = rawNum.replace(",", ".")
+            standardized.toDoubleOrNull() ?: 0.0
+        }
+
+        return (parsedNumber * multiplier).toLong()
     }
 }
