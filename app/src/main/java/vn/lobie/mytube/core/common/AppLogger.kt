@@ -37,30 +37,37 @@ object AppLogger {
 
     private val logScope = CoroutineScope(Dispatchers.IO)
     private var logFile: File? = null
-    var isVerboseLoggingEnabled: Boolean = true
+    var isVerboseLoggingEnabled: Boolean = vn.lobie.mytube.BuildConfig.DEBUG
 
     fun init(context: Context) {
         val dir = File(context.cacheDir, "logs")
         if (!dir.exists()) dir.mkdirs()
         logFile = File(dir, "mytube_debug.log")
-        i("System", "AppLogger initialized. Device=${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})")
+        if (vn.lobie.mytube.BuildConfig.DEBUG) {
+            i("System", "AppLogger initialized. Device=${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})")
+        }
     }
 
     fun d(tag: String, msg: String, videoId: String? = null, raw: String? = null) {
         if (isVerboseLoggingEnabled) log("D", tag, msg, videoId, raw)
     }
 
-    fun i(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("I", tag, msg, videoId, raw)
+    fun i(tag: String, msg: String, videoId: String? = null, raw: String? = null) {
+        if (isVerboseLoggingEnabled) log("I", tag, msg, videoId, raw)
+    }
     fun w(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("W", tag, msg, videoId, raw)
     fun e(tag: String, msg: String, videoId: String? = null, raw: String? = null) = log("E", tag, msg, videoId, raw)
 
     fun log(level: String, tag: String, message: String, videoId: String? = null, raw: String? = null) {
         val vidPrefix = if (!videoId.isNullOrEmpty()) "[$videoId] " else ""
-        when (level) {
-            "E" -> Log.e("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
-            "W" -> Log.w("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
-            "I" -> Log.i("MyTube.$tag", "$vidPrefix$message")
-            else -> Log.d("MyTube.$tag", "$vidPrefix$message")
+        // SEC-08: Only write to system Logcat in debug builds to prevent privacy leakage in release
+        if (vn.lobie.mytube.BuildConfig.DEBUG) {
+            when (level) {
+                "E" -> Log.e("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
+                "W" -> Log.w("MyTube.$tag", "$vidPrefix$message", raw?.let { Exception(it) })
+                "I" -> Log.i("MyTube.$tag", "$vidPrefix$message")
+                else -> Log.d("MyTube.$tag", "$vidPrefix$message")
+            }
         }
 
         val entry = LogEntry(
