@@ -2380,6 +2380,8 @@ private fun VideoPlayerSurface(
     var gestureIndicatorJob by remember { mutableStateOf<Job?>(null) }
     var isDraggingLeft by remember { mutableStateOf(false) }
 
+    var gestureDragDelta by remember { mutableStateOf(0f) }
+
     Box(
         modifier = modifier
             .background(Color.Black)
@@ -2425,6 +2427,13 @@ private fun VideoPlayerSurface(
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDraggingLeft = offset.x < size.width / 2
+                        gestureDragDelta = 0f
+                    },
+                    onDragEnd = {
+                        gestureDragDelta = 0f
+                    },
+                    onDragCancel = {
+                        gestureDragDelta = 0f
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
@@ -2436,43 +2445,21 @@ private fun VideoPlayerSurface(
                         val deltaY = -dragAmount.y
                         if (isDraggingLeft) {
                             activity?.let { act ->
-                                val layoutParams = act.window.attributes
-                                var currentBrightness = layoutParams.screenBrightness
-                                if (currentBrightness < 0f) currentBrightness = 0.5f
-                                val newBrightness = (currentBrightness + deltaY / 400f).coerceIn(0.01f, 1.0f)
-                                layoutParams.screenBrightness = newBrightness
-                                act.window.attributes = layoutParams
+                                runCatching {
+                                    val layoutParams = act.window.attributes
+                                    var currentBrightness = layoutParams.screenBrightness
+                                    if (currentBrightness < 0f) currentBrightness = 0.5f
+                                    val newBrightness = (currentBrightness + deltaY / 400f).coerceIn(0.01f, 1.0f)
+                                    layoutParams.screenBrightness = newBrightness
+                                    act.window.attributes = layoutParams
 
-                                val percent = (newBrightness * 100).toInt()
-                                gestureIndicatorText = "$percent%"
-                                gestureIndicatorPercent = newBrightness
-                                gestureIndicatorIcon = when {
-                                    newBrightness > 0.6f -> Icons.Default.BrightnessHigh
-                                    newBrightness > 0.3f -> Icons.Default.BrightnessMedium
-                                    else -> Icons.Default.BrightnessLow
-                                }
-                                gestureIndicatorJob?.cancel()
-                                gestureIndicatorJob = coroutineScope.launch {
-                                    delay(1200)
-                                    gestureIndicatorText = null
-                                    gestureIndicatorIcon = null
-                                    gestureIndicatorPercent = null
-                                }
-                            }
-                        } else {
-                            audioManager?.let { am ->
-                                val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                val deltaStep = (deltaY / 30f).toInt()
-                                if (deltaStep != 0) {
-                                    val newVol = (currentVol + deltaStep).coerceIn(0, maxVolume)
-                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
-                                    val percent = ((newVol.toFloat() / maxVolume) * 100).toInt()
+                                    val percent = (newBrightness * 100).toInt().coerceIn(1, 100)
                                     gestureIndicatorText = "$percent%"
-                                    gestureIndicatorPercent = newVol.toFloat() / maxVolume
+                                    gestureIndicatorPercent = newBrightness.coerceIn(0f, 1f)
                                     gestureIndicatorIcon = when {
-                                        newVol == 0 -> Icons.Default.VolumeOff
-                                        newVol < maxVolume / 2 -> Icons.Default.VolumeDown
-                                        else -> Icons.Default.VolumeUp
+                                        newBrightness > 0.6f -> Icons.Default.BrightnessHigh
+                                        newBrightness > 0.3f -> Icons.Default.BrightnessMedium
+                                        else -> Icons.Default.BrightnessLow
                                     }
                                     gestureIndicatorJob?.cancel()
                                     gestureIndicatorJob = coroutineScope.launch {
@@ -2480,6 +2467,37 @@ private fun VideoPlayerSurface(
                                         gestureIndicatorText = null
                                         gestureIndicatorIcon = null
                                         gestureIndicatorPercent = null
+                                    }
+                                }
+                            }
+                        } else {
+                            audioManager?.let { am ->
+                                runCatching {
+                                    val safeMax = (if (maxVolume > 0) maxVolume else am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).coerceAtLeast(1)
+                                    val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                    gestureDragDelta += deltaY
+                                    val stepThreshold = 30f
+                                    val steps = (gestureDragDelta / stepThreshold).toInt()
+                                    if (steps != 0) {
+                                        gestureDragDelta -= steps * stepThreshold
+                                        val newVol = (currentVol + steps).coerceIn(0, safeMax)
+                                        am.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
+                                        val fraction = (newVol.toFloat() / safeMax).coerceIn(0f, 1f)
+                                        val percent = (fraction * 100).toInt().coerceIn(0, 100)
+                                        gestureIndicatorText = "$percent%"
+                                        gestureIndicatorPercent = fraction
+                                        gestureIndicatorIcon = when {
+                                            newVol == 0 -> Icons.Default.VolumeOff
+                                            newVol < safeMax / 2 -> Icons.Default.VolumeDown
+                                            else -> Icons.Default.VolumeUp
+                                        }
+                                        gestureIndicatorJob?.cancel()
+                                        gestureIndicatorJob = coroutineScope.launch {
+                                            delay(1200)
+                                            gestureIndicatorText = null
+                                            gestureIndicatorIcon = null
+                                            gestureIndicatorPercent = null
+                                        }
                                     }
                                 }
                             }
@@ -2712,10 +2730,10 @@ private fun VideoPlayerSurface(
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
-                        if (gestureIndicatorPercent != null) {
+                        gestureIndicatorPercent?.let { percentVal ->
                             Spacer(modifier = Modifier.height(8.dp))
                             LinearProgressIndicator(
-                                progress = { gestureIndicatorPercent!! },
+                                progress = { (gestureIndicatorPercent ?: percentVal).coerceIn(0f, 1f) },
                                 modifier = Modifier
                                     .width(100.dp)
                                     .height(6.dp)
