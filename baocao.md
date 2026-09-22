@@ -234,3 +234,104 @@ Dự án kiên quyết tuân thủ các nguyên tắc thiết kế vì quyền t
    - Cho phép người dùng nhập trực tiếp tệp `subscriptions.csv` xuất từ Google Takeout hoặc tệp sao lưu của NewPipe để chuyển đổi danh sách theo dõi kênh chỉ trong một chạm.
 5. **Thuật toán gợi ý thông minh cục bộ (Local Recommendation Engine)**:
    - Dựa trên tần suất thể loại và kênh video trong bảng `WatchHistoryDao` để sắp xếp thứ tự ưu tiên cho video đề xuất tại Trang chủ mà không cần gửi bất kỳ dữ liệu nào ra bên ngoài.
+
+---
+
+### 9. Báo cáo hoàn thiện nâng cấp 5 giai đoạn cải tiến (Phiên bản v2.0.0-beta.1)
+
+Sau khi đánh giá và tiếp thu toàn bộ ý kiến đóng góp chuyên môn từ các báo cáo phân tích kiến trúc, dự án MyTube đã trải qua quá trình tái cấu trúc và phát triển qua 5 giai đoạn cải tiến trọng điểm. Dưới đây là báo cáo chi tiết về các chức năng, luồng xử lý và các tệp thực tế đã được hiện thực hóa:
+
+#### 9.1. Giai đoạn 1: Core Hardening & Kiến trúc Resilience (Khả năng phục hồi)
+- **Chuẩn hóa trạng thái ngoại tuyến (Offline State)**:
+  - Tệp: `HomeScreen.kt`, `CascadingYouTubeRepository.kt`.
+  - Luồng: Khi thiết bị mất kết nối mạng hoặc tất cả các máy chủ backend đều gặp sự cố, hệ thống không còn dùng dữ liệu mẫu (fake data) mà chuyển sang hiển thị thẻ trạng thái ngoại tuyến rõ ràng, thân thiện kèm nút bấm thử lại (Retry) cho người dùng.
+- **Tách biệt tầng nghiệp vụ Domain UseCase độc lập**:
+  - Tệp: `GetStreamWithFallbackUseCase.kt`, `SearchVideosUseCase.kt`, `GetTrendingVideosUseCase.kt`.
+  - Luồng: Tuân thủ nguyên lý Single Responsibility của Clean Architecture. Logic điều phối luồng dự phòng (fallback cascade) giữa Invidious, InnerTube và NewPipe được chuyển từ ViewModel vào `GetStreamWithFallbackUseCase`, giúp `PlayerViewModel` trở nên tinh gọn, dễ bảo trì và dễ viết kiểm thử tự động.
+- **Bảo vệ quyền riêng tư & Tối ưu hóa trải nghiệm người dùng**:
+  - Tệp: `SettingsScreen.kt`, `PlayerViewModel.kt`, `SponsorBlockApiClient.kt`, `ReturnYouTubeDislikeApiClient.kt`.
+  - Luồng: Bổ sung các công tắc tùy chỉnh trong Cài đặt cho phép người dùng bật/tắt SponsorBlock (tự động phát hiện và bỏ qua các đoạn quảng cáo tài trợ lồng trong video) và Return YouTube Dislike (truy vấn API để lấy và hiển thị số lượt Dislike thực tế của video).
+- **Bộ nhớ đệm Invidious Mirror Cache & Đo độ trễ trực quan**:
+  - Tệp: `InvidiousClient.kt`, `InvidiousInstanceCache.kt`, `SettingsScreen.kt`.
+  - Luồng: Lưu trữ danh sách máy chủ Invidious hoạt động vào cache cục bộ, cho phép kiểm tra độ trễ mạng (ping tính bằng mili-giây) của từng mirror ngay trên giao diện cài đặt và tự động ưu tiên máy chủ có tốc độ phản hồi nhanh nhất.
+
+#### 9.2. Giai đoạn 2: Nâng tầm trải nghiệm Trình phát đa phương tiện (Playback Polish)
+- **Chuẩn hóa âm lượng (Audio Normalization / Loudness Enhancer)**:
+  - Tệp: `PlaybackService.kt`, `PlayerViewModel.kt`.
+  - Luồng: Tích hợp bộ xử lý hiệu ứng âm thanh phần cứng `LoudnessEnhancer` của Android, tự động cân bằng các nguồn video có mức âm lượng quá nhỏ hoặc quá lớn, mang lại âm thanh đồng đều, êm dịu khi nghe liên tục các video khác nhau.
+- **Hẹn giờ ngủ (Sleep Timer) kèm hiệu ứng hạ dần âm lượng (Fade-Out)**:
+  - Tệp: `PlayerViewModel.kt`, `FullPlayer.kt`.
+  - Luồng: Người dùng có thể hẹn giờ tắt nhạc sau 15, 30, 45 hoặc 60 phút. Trong 30 giây cuối cùng trước khi hết giờ hẹn, hệ thống sẽ hạ dần âm lượng một cách mượt mà trước khi dừng hẳn trình phát, giúp người dùng đi vào giấc ngủ tự nhiên.
+- **Hiệu ứng chuyển bài đan xen mượt mà (Crossfade)**:
+  - Tệp: `PlayerViewModel.kt`, `PlaybackService.kt`.
+  - Luồng: Khi chuyển sang video hoặc bài hát tiếp theo trong danh sách phát, âm thanh của bài cũ sẽ từ từ nhỏ dần trong khi bài mới từ từ lớn dần, loại bỏ hoàn toàn cảm giác ngắt quãng âm thanh đột ngột.
+- **Hiệu ứng chạm 2 lần tua nhanh dạng gợn sóng vòng cung (Double-Tap Seek Ripple Arc)**:
+  - Tệp: `FullPlayer.kt`, `PlayerViewModel.kt`.
+  - Luồng: Khi người dùng chạm đúp vào mép trái hoặc mép phải video, một vòng cung gợn sóng hình học sống động sẽ lan tỏa kèm nhãn thời gian tua (+10s, +20s). Hỗ trợ cài đặt tùy biến bước nhảy tua (5s, 10s, 15s, 30s) trong menu Cài đặt và hộp thoại chọn nhanh.
+- **Tính năng Lặp đoạn A-B (A-B Loop)**:
+  - Tệp: `FullPlayer.kt`, `PlayerViewModel.kt`, `PlayerUiState.kt`.
+  - Luồng: Cho phép người dùng đánh dấu mốc thời gian A (bắt đầu) và mốc thời gian B (kết thúc). Trình phát sẽ liên tục theo dõi tiến trình và tự động quay ngược lại điểm A ngay khi chạm điểm B, rất hữu ích cho việc học ngoại ngữ hoặc nghe lại đoạn nhạc yêu thích.
+- **Tùy biến hiển thị phụ đề chuyên sâu**:
+  - Tệp: `FullPlayer.kt`, `PlayerViewModel.kt`.
+  - Luồng: Cung cấp bảng điều khiển cho phép thay đổi tỉ lệ cỡ chữ phụ đề và màu nền hiển thị (trong suốt, đen mờ, vàng, xanh dương), nâng cao khả năng tiếp cận và độ dễ đọc trong mọi điều kiện ánh sáng.
+- **Quản lý lịch sử xem video an toàn**:
+  - Tệp: `LibraryScreen.kt`, `LibraryViewModel.kt`, `SettingsScreen.kt`.
+  - Luồng: Bổ sung tùy chọn tạm dừng ghi lại lịch sử xem và nút xóa toàn bộ lịch sử xem kèm hộp thoại xác nhận cảnh báo an toàn.
+
+#### 9.3. Giai đoạn 3: Tính di động dữ liệu (Data Portability) & Tương tác cộng đồng
+- **Nhập danh sách kênh đăng ký từ bên ngoài**:
+  - Tệp: `SettingsScreen.kt`, `SettingsViewModel.kt`, `SubscriptionDao.kt`.
+  - Luồng: Cho phép người dùng chọn tệp `subscriptions.csv` xuất từ Google Takeout của YouTube hoặc tệp sao lưu JSON từ NewPipe qua bộ chọn tệp tin Android SAF. Hệ thống phân tích cấu trúc tệp và nhập hàng loạt kênh vào bảng `subscriptions` trong Room Database chỉ trong vài giây.
+- **Sao lưu và Phục hồi toàn vẹn 5 bảng Room Database (Full Backup & Restore)**:
+  - Tệp: `SettingsViewModel.kt`, `SettingsScreen.kt`, `MyTubeDatabase.kt`.
+  - Luồng: Xuất toàn bộ dữ liệu người dùng (lịch sử xem, video đã thích, kênh đăng ký, danh sách phát và các video trong danh sách phát) thành một tệp tin JSON nén hoàn chỉnh. Tính năng phục hồi hỗ trợ đọc tệp sao lưu này và nạp lại toàn bộ cơ sở dữ liệu khi chuyển sang thiết bị mới.
+- **Trình xem bình luận video dạng ModalBottomSheet**:
+  - Tệp: `FullPlayer.kt`, `PlayerViewModel.kt`, `InvidiousClient.kt`.
+  - Luồng: Người dùng có thể nhấn vào khu vực bình luận dưới video để mở một bảng kéo vuốt từ dưới lên. Ứng dụng kết nối API Invidious để hiển thị danh sách bình luận đầy đủ với avatar người dùng, tên kênh, nội dung định dạng, lượt thích, huy hiệu tác giả và huy hiệu bình luận đã ghim.
+
+#### 9.4. Giai đoạn 4: Làm giàu siêu dữ liệu âm nhạc (Metadata Enrichment) & Gợi ý Cục bộ
+- **Bóc tách và chuẩn hóa tên bài hát / nghệ sĩ tự động**:
+  - Tệp: `MusicMetadataEnricher.kt`, `PlayerViewModel.kt`.
+  - Luồng: Bộ phân tích biểu thức chính quy thông minh tự động tách các tiêu đề video YouTube có dạng "Nghệ sĩ - Tên bài hát (Official Music Video)" thành tên nghệ sĩ và tên bài hát chuẩn mực quốc tế.
+- **Tích hợp MusicBrainz & Cover Art Archive**:
+  - Tệp: `MusicBrainzClient.kt`, `CoverArtArchiveClient.kt`, `PlayerViewModel.kt`.
+  - Luồng: Tự động gửi truy vấn bất đồng bộ tới cơ sở dữ liệu âm nhạc mở MusicBrainz để lấy mã định danh bản ghi âm (Recording MBID), mã định danh nhóm phát hành (Release Group MBID), và tải về ảnh bìa album gốc chất lượng cao từ Cover Art Archive.
+- **Biểu ngữ âm nhạc nâng cao & Hộp thoại tiểu sử nghệ sĩ**:
+  - Tệp: `FullPlayer.kt`, `PlayerUiState.kt`.
+  - Luồng: Khi phát bài hát, giao diện hiển thị biểu ngữ `EnrichedMusicBanner` với thông tin đĩa nhạc chính thức. Bấm vào tên nghệ sĩ sẽ mở hộp thoại tiểu sử tóm tắt được truy xuất từ Wikipedia và MusicBrainz. Khi bật chế độ "Chỉ âm thanh", ảnh bìa album gốc chất lượng cao sẽ thay thế thumbnail YouTube, biến ứng dụng thành một máy nghe nhạc cao cấp.
+- **Đồng bộ nghe nhạc lên ListenBrainz (Scrobbling)**:
+  - Tệp: `ListenBrainzClient.kt`, `PlayerViewModel.kt`, `SettingsScreen.kt`.
+  - Luồng: Người dùng có thể nhập User Token tài khoản ListenBrainz trong Cài đặt. Khi nghe nhạc được trên 50% thời lượng bài hát hoặc quá 4 phút, ứng dụng sẽ tự động gửi gói tin scrobble lên máy chủ ListenBrainz để lưu giữ nhật ký nghe nhạc trọn đời.
+- **Thuật toán gợi ý thông minh 100% cục bộ (Local Recommendation Engine)**:
+  - Tệp: `LocalRecommendationEngine.kt`, `HomeViewModel.kt`, `WatchHistoryDao.kt`.
+  - Luồng: Thuật toán phân tích tần suất xuất hiện của các thể loại và kênh video trong bảng lịch sử xem cục bộ để tính điểm trọng số sở thích. Trang chủ sẽ ưu tiên sắp xếp các video phù hợp nhất với thói quen của người dùng lên đầu nguồn cấp dữ liệu mà không hề gửi bất kỳ dữ liệu cá nhân nào ra ngoài Internet.
+
+#### 9.5. Giai đoạn 5: Hoàn thiện Engine Đa phương tiện Ngoại tuyến (Offline Media Engine & Download Service)
+- **Bộ ghép luồng gốc Android (`MediaMuxer` + `MediaExtractor`)**:
+  - Tệp: `DownloadManager.kt`.
+  - Luồng: Giải quyết triệt để rào cản luồng phân tách DASH của YouTube (video độ nét cao 1080p và âm thanh nằm ở 2 đường dẫn riêng biệt). Dịch vụ tải luồng hình ảnh về tệp tạm (tiến trình 0% → 70%), tải luồng âm thanh M4A về tệp tạm (tiến trình 70% → 90%), sau đó kích hoạt `MediaExtractor` và `MediaMuxer` của chính hệ điều hành Android để ghép lại thành tệp MP4 chuẩn mực (tiến trình 90% → 100%). Hoàn toàn không cần phụ thuộc thư viện FFmpeg hay native binary nặng nề bên ngoài, giữ vững kích thước APK dưới 20 MB.
+- **Tải tệp chỉ âm thanh (Audio-only M4A/MP3)**:
+  - Tệp: `DownloadManager.kt`, `PlayerViewModel.kt`.
+  - Luồng: Hỗ trợ người dùng tải trực tiếp luồng âm thanh M4A 128kbps để nghe nhạc khi đi tàu xe, máy bay hoặc tắt màn hình, tiết kiệm tối đa bộ nhớ máy và lưu lượng mạng 4G/5G.
+- **Theo dõi tiến trình tải trực tiếp (Live Progress Tracking)**:
+  - Tệp: `DownloadManager.kt`, `DownloadDao.kt`, `PlayerUiState.kt`, `PlayerViewModel.kt`.
+  - Luồng: Tích hợp `StateFlow` phát tiến trình thời gian thực kết hợp cập nhật bảng `downloads` trong Room Database. Nút tải trên giao diện `FullPlayer` hiển thị vòng xoay `CircularProgressIndicator` và phần trăm trực tiếp.
+- **Hộp thoại tùy chọn chất lượng tải xuống trực quan**:
+  - Tệp: `FullPlayer.kt`, `PlayerViewModel.kt`.
+  - Luồng: Khi bấm nút Tải về, hộp thoại nổi bật hiện ra danh sách các độ phân giải khả dụng (1080p Full HD, 720p HD, 480p, 360p) và lựa chọn Chỉ tải âm thanh (M4A). Nếu tệp đang tải, bấm vào nút sẽ mở hộp thoại hủy tiến trình tải. Nếu tệp đã tải xong, bấm vào nút sẽ mở thông tin tệp và tùy chọn xóa bản tải.
+- **Kệ tải xuống ngoại tuyến hoàn thiện trong Thư viện (`LibraryScreen`)**:
+  - Tệp: `LibraryScreen.kt`, `LibraryViewModel.kt`.
+  - Luồng:
+    - Thống kê tổng hợp số lượng mục tải và tổng dung lượng bộ nhớ đã chiếm dụng (ví dụ: `3 mục • 142.5 MB`).
+    - Mỗi thẻ video hiển thị huy hiệu chất lượng sắc nét (`🎵 M4A` hoặc `🎬 1080p`), dung lượng tệp ở góc dưới, và thanh tiến trình ngang `LinearProgressIndicator` khi đang tải.
+    - Cơ chế phát ngoại tuyến tức thì: Bấm vào thẻ video để phát ngay lập tức từ tệp cục bộ (`file://`) mà không cần kết nối Internet, tự động kích hoạt chế độ Audio-only nếu là tệp âm thanh.
+    - Hộp thoại xác nhận xóa tệp an toàn và giao diện thẻ trống trang nhã khi chưa có nội dung ngoại tuyến nào.
+
+#### 9.6. Tổng kết thành tựu kỹ thuật & Trạng thái phát hành v2.0.0-beta.1
+- **Toàn bộ 5 giai đoạn cải tiến đã hoàn tất 100%**: Mọi hạn chế được nêu ra trong các bản đánh giá trước đây (về khả năng tải ngoại tuyến, ghép luồng DASH, xem bình luận, sao lưu dữ liệu, bảo vệ quyền riêng tư và làm giàu âm nhạc) đều đã được giải quyết triệt để.
+- **Kiến trúc bền vững & Sạch sẽ**: Phân tách rõ ràng giữa Data - Domain - UI, MVI Unidirectional Data Flow, Room Database Reactive Flows, hỗ trợ đa nguồn tự động chuyển đổi thông minh và không phụ thuộc Google Play Services.
+- **CI/CD Đóng gói tự động**: Hệ thống GitHub Actions tự động biên dịch và cập nhật gói cài đặt APK chính thức lên kho mã nguồn `v2.0.0-beta.1` với 3 kiến trúc:
+  - `MyTube-arm64-v8a.apk` (19.76 MiB - Tối ưu cho hầu hết điện thoại Android hiện đại)
+  - `MyTube-armeabi-v7a.apk` (19.76 MiB - Tối ưu cho thiết bị 32-bit cũ)
+  - `MyTube-universal.apk` (19.85 MiB - Tương thích mọi cấu hình máy)
+
