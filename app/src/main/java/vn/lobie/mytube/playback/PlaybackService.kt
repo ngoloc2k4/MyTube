@@ -35,9 +35,10 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
 
         // Configure HTTP Data Source with Chrome/YouTube User-Agent & Headers to prevent 403 Forbidden
+        // SEC-04: Disallow cross-protocol redirects to prevent HTTPS -> HTTP downgrades
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
-            .setAllowCrossProtocolRedirects(true)
+            .setAllowCrossProtocolRedirects(false)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(15_000)
             .setDefaultRequestProperties(
@@ -119,6 +120,12 @@ class PlaybackService : MediaSessionService() {
                     session: MediaSession,
                     controller: MediaSession.ControllerInfo
                 ): MediaSession.ConnectionResult {
+                    // SEC-03: Validate caller package and UID to prevent IPC hijacking
+                    if (!isTrustedController(controller, session)) {
+                        Log.w("PlaybackService", "Rejected untrusted MediaController from package: ${controller.packageName} (UID: ${controller.uid})")
+                        return MediaSession.ConnectionResult.reject()
+                    }
+
                     val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().build()
                     val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
                         .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
@@ -134,6 +141,35 @@ class PlaybackService : MediaSessionService() {
                 }
             })
             .build()
+    }
+
+    private fun isTrustedController(
+        controller: MediaSession.ControllerInfo,
+        session: MediaSession
+    ): Boolean {
+        // 1. Same app process / UID
+        if (controller.uid == android.os.Process.myUid()) {
+            return true
+        }
+        // 2. Android System Server / System UI UID (UID 1000)
+        if (controller.uid == android.os.Process.SYSTEM_UID) {
+            return true
+        }
+        // 3. Media Notification Controller from Media3
+        if (session.isMediaNotificationController(controller)) {
+            return true
+        }
+        // 4. Known system packages & platform controllers (Bluetooth AVRCP, Android Auto, Telecom, Assistant)
+        val trustedPackages = listOf(
+            "com.android.systemui",
+            "com.android.bluetooth",
+            "com.android.server.telecom",
+            "com.google.android.projection.gearhead", // Android Auto
+            "com.google.android.googlequicksearchbox", // Google Assistant
+            "com.google.android.car"
+        )
+        val pkg = controller.packageName
+        return trustedPackages.any { pkg == it || pkg.startsWith("$it.") }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
