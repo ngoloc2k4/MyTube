@@ -60,6 +60,11 @@ class DownloadManager private constructor(private val context: Context) {
             val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt().coerceIn(0, units.size - 1)
             return String.format(Locale.US, "%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
         }
+
+        fun sanitizeVideoId(rawId: String): String {
+            val cleaned = rawId.replace(Regex("[^a-zA-Z0-9_-]"), "")
+            return if (cleaned.isNotBlank()) cleaned.take(64) else "video_${System.currentTimeMillis()}"
+        }
     }
 
     fun getDownloadsDir(): File {
@@ -70,13 +75,28 @@ class DownloadManager private constructor(private val context: Context) {
         return dir
     }
 
-    fun getDownloadedFile(videoId: String): File? {
+    private fun getSafeDownloadFile(fileName: String): File {
         val dir = getDownloadsDir()
+        val file = File(dir, fileName)
+        val canonicalDir = dir.canonicalPath
+        val canonicalFile = file.canonicalPath
+        if (!canonicalFile.startsWith(canonicalDir + File.separator)) {
+            throw SecurityException("Security violation: Path traversal detected in '$fileName'")
+        }
+        return file
+    }
+
+    fun getDownloadedFile(videoId: String): File? {
+        val safeId = sanitizeVideoId(videoId)
         val extensions = listOf("mp4", "m4a", "mp3", "webm", "mkv")
         for (ext in extensions) {
-            val file = File(dir, "$videoId.$ext")
-            if (file.exists() && file.length() > 0) {
-                return file
+            try {
+                val file = getSafeDownloadFile("$safeId.$ext")
+                if (file.exists() && file.length() > 0) {
+                    return file
+                }
+            } catch (_: SecurityException) {
+                // Ignore invalid paths
             }
         }
         return null
@@ -102,9 +122,10 @@ class DownloadManager private constructor(private val context: Context) {
                 if (format.contains("mp3", ignoreCase = true)) "mp3" else "m4a"
             } else "mp4"
 
-            val targetFile = File(getDownloadsDir(), "${video.id}.$extension")
-            val tempVideoFile = File(getDownloadsDir(), "${video.id}_temp_video.mp4")
-            val tempAudioFile = File(getDownloadsDir(), "${video.id}_temp_audio.m4a")
+            val safeId = sanitizeVideoId(video.id)
+            val targetFile = getSafeDownloadFile("$safeId.$extension")
+            val tempVideoFile = getSafeDownloadFile("${safeId}_temp_video.mp4")
+            val tempAudioFile = getSafeDownloadFile("${safeId}_temp_audio.m4a")
 
             val downloadEntity = DownloadEntity(
                 videoId = video.id,
@@ -409,17 +430,19 @@ class DownloadManager private constructor(private val context: Context) {
         job?.cancel()
         removeProgressState(videoId)
         scope.launch {
-            val dir = getDownloadsDir()
+            val safeId = sanitizeVideoId(videoId)
             listOf(
-                "${videoId}.mp4",
-                "${videoId}.m4a",
-                "${videoId}.mp3",
-                "${videoId}.webm",
-                "${videoId}_temp_video.mp4",
-                "${videoId}_temp_audio.m4a"
+                "${safeId}.mp4",
+                "${safeId}.m4a",
+                "${safeId}.mp3",
+                "${safeId}.webm",
+                "${safeId}_temp_video.mp4",
+                "${safeId}_temp_audio.m4a"
             ).forEach { name ->
-                val f = File(dir, name)
-                if (f.exists()) f.delete()
+                try {
+                    val f = getSafeDownloadFile(name)
+                    if (f.exists()) f.delete()
+                } catch (_: SecurityException) {}
             }
             db.downloadDao().delete(videoId)
         }
