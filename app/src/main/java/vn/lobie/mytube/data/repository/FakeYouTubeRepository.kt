@@ -118,4 +118,34 @@ class FakeYouTubeRepository : YouTubeRepository {
             )
         )
     }
+
+    override suspend fun getComments(videoId: String): Result<List<vn.lobie.mytube.domain.model.Comment>> {
+        delay(200)
+        return Result.success(
+            listOf(
+                vn.lobie.mytube.domain.model.Comment(
+                    id = "c1",
+                    author = "Android Architect",
+                    authorAvatarUrl = "https://picsum.photos/seed/avatar1/120/120",
+                    content = "Video phân tích kiến trúc rất chi tiết và dễ hiểu! Cảm ơn tác giả.",
+                    publishedTimeText = "2 ngày trước",
+                    likeCount = 142,
+                    replyCount = 5,
+                    isPinned = true,
+                    isChannelOwner = false
+                ),
+                vn.lobie.mytube.domain.model.Comment(
+                    id = "c2",
+                    author = "Lobie Dev",
+                    authorAvatarUrl = "https://picsum.photos/seed/avatar2/120/120",
+                    content = "Cảm ơn mọi người đã theo dõi. Mọi góp ý xin để lại ở phần thảo luận bên dưới nhé!",
+                    publishedTimeText = "1 ngày trước",
+                    likeCount = 88,
+                    replyCount = 2,
+                    isPinned = false,
+                    isChannelOwner = true
+                )
+            )
+        )
+    }
 }

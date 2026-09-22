@@ -27,8 +27,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogProperties
+import vn.lobie.mytube.R
 import vn.lobie.mytube.data.local.prefs.SettingsDataStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +74,39 @@ fun SettingsScreen(
     var showAddInstanceDialog by remember { mutableStateOf(false) }
     var showDebugLogsDialog by remember { mutableStateOf(false) }
     var newInstanceInput by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val backupStatus by viewModel.backupStatus.collectAsState()
+    LaunchedEffect(backupStatus) {
+        backupStatus?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            viewModel.clearBackupStatus()
+        }
+    }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportBackup(uri)
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.restoreBackup(uri)
+        }
+    }
+
+    val importSubsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importSubscriptions(uri)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -327,6 +363,45 @@ fun SettingsScreen(
                     title = "Nhật ký gỡ lỗi (Debug Logs)",
                     subtitle = "Xem log ứng dụng realtime, lọc theo nguồn và sao chép báo cáo lỗi",
                     onClick = { showDebugLogsDialog = true }
+                )
+            }
+
+            // Backup & Restore Section
+            item {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                SectionHeader(stringResource(R.string.backup_and_restore))
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.CloudUpload,
+                    title = stringResource(R.string.backup_export),
+                    subtitle = stringResource(R.string.backup_export_desc),
+                    onClick = {
+                        exportBackupLauncher.launch("mytube_backup_${System.currentTimeMillis()}.json")
+                    }
+                )
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.CloudDownload,
+                    title = stringResource(R.string.backup_restore),
+                    subtitle = stringResource(R.string.backup_restore_desc),
+                    onClick = {
+                        restoreBackupLauncher.launch(arrayOf("application/json", "*/*"))
+                    }
+                )
+            }
+
+            item {
+                SettingClickableItem(
+                    icon = Icons.Default.Subscriptions,
+                    title = stringResource(R.string.import_subscriptions),
+                    subtitle = stringResource(R.string.import_subscriptions_desc),
+                    onClick = {
+                        importSubsLauncher.launch(arrayOf("*/*", "text/csv", "application/json"))
+                    }
                 )
             }
 

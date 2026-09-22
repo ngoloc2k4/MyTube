@@ -93,6 +93,8 @@ class MainActivity : ComponentActivity() {
                     }
 
                     val playerUiState by playerViewModel.uiState.collectAsState()
+                    val comments by playerViewModel.comments.collectAsState()
+                    val isCommentsLoading by playerViewModel.isCommentsLoading.collectAsState()
                     var currentTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
 
                     val uiMode by settingsDataStore.uiMode.collectAsState(initial = SettingsDataStore.UI_MODE_AUTO)
@@ -197,6 +199,9 @@ class MainActivity : ComponentActivity() {
                                     FullPlayer(
                                         uiState = playerUiState,
                                         player = playerViewModel.player,
+                                        comments = comments,
+                                        isCommentsLoading = isCommentsLoading,
+                                        onRefreshComments = { playerViewModel.loadComments() },
                                         onCollapse = { playerViewModel.collapse() },
                                         onTogglePlayPause = { playerViewModel.togglePlayPause() },
                                         onSeek = { playerViewModel.seekTo(it) },

@@ -129,4 +129,17 @@
     <string name="remove_from_history">Xóa khỏi nhật ký xem</string>
     <string name="confirm_action">Xóa</string>
     <string name="cancel_action">Hủy</string>
+    <string name="comments_title">Bình luận</string>
+    <string name="comments_empty">Chưa có bình luận nào</string>
+    <string name="comments_loading">Đang tải bình luận…</string>
+    <string name="comments_view_all">Xem tất cả bình luận</string>
+    <string name="pinned_comment">Đã ghim</string>
+    <string name="channel_owner">Tác giả</string>
+    <string name="backup_and_restore">Sao lưu &amp; Phục hồi</string>
+    <string name="backup_export">Sao lưu dữ liệu</string>
+    <string name="backup_export_desc">Lưu kênh đăng ký, lịch sử, danh sách phát ra tệp JSON</string>
+    <string name="backup_restore">Khôi phục dữ liệu</string>
+    <string name="backup_restore_desc">Khôi phục dữ liệu từ tệp sao lưu MyTube JSON</string>
+    <string name="import_subscriptions">Nhập kênh đăng ký</string>
+    <string name="import_subscriptions_desc">Nhập kênh từ Google Takeout (CSV) hoặc NewPipe (JSON)</string>
 </resources>

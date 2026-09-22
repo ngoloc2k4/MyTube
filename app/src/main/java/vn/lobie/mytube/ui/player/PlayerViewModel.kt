@@ -48,7 +48,8 @@ class PlayerViewModel(
     private val repository: YouTubeRepository,
     private val getStreamWithFallbackUseCase: vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase = vn.lobie.mytube.domain.usecase.GetStreamWithFallbackUseCase(repository),
     private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository),
-    private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository)
+    private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository),
+    private val getCommentsUseCase: vn.lobie.mytube.domain.usecase.GetCommentsUseCase = vn.lobie.mytube.domain.usecase.GetCommentsUseCase(repository)
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -63,6 +64,22 @@ class PlayerViewModel(
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+
+    private val _comments = MutableStateFlow<List<vn.lobie.mytube.domain.model.Comment>>(emptyList())
+    val comments: StateFlow<List<vn.lobie.mytube.domain.model.Comment>> = _comments.asStateFlow()
+
+    private val _isCommentsLoading = MutableStateFlow(false)
+    val isCommentsLoading: StateFlow<Boolean> = _isCommentsLoading.asStateFlow()
+
+    fun loadComments(videoId: String? = _uiState.value.currentVideo?.id) {
+        val id = videoId ?: return
+        viewModelScope.launch {
+            _isCommentsLoading.value = true
+            val result = getCommentsUseCase(id)
+            _comments.value = result.getOrDefault(emptyList())
+            _isCommentsLoading.value = false
+        }
+    }
 
     var player: Player? by mutableStateOf(null)
         private set
@@ -264,6 +281,9 @@ class PlayerViewModel(
                 currentSourceName = null
             )
         }
+
+        _comments.value = emptyList()
+        loadComments(video.id)
 
         // Fetch SponsorBlock skip segments asynchronously
         sponsorBlockJob = viewModelScope.launch {

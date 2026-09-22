@@ -105,4 +105,22 @@ class SubscriptionsViewModel(
             }
         }
     }
+
+    private val backupManager = vn.lobie.mytube.data.importer.BackupRestoreManager(getApplication(), db)
+    private val _importStatus = MutableStateFlow<String?>(null)
+    val importStatus: StateFlow<String?> = _importStatus.asStateFlow()
+
+    fun clearImportStatus() {
+        _importStatus.value = null
+    }
+
+    fun importSubscriptionsFromUri(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = backupManager.importSubscriptionsFromFile(uri)
+            _importStatus.value = result.fold(
+                onSuccess = { count -> "Đã nhập thành công $count kênh đăng ký!" },
+                onFailure = { err -> "Nhập kênh thất bại: ${err.message}" }
+            )
+        }
+    }
 }

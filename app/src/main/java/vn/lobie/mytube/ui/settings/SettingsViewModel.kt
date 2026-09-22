@@ -257,4 +257,45 @@ class SettingsViewModel(
             db.watchHistoryDao().deleteAll()
         }
     }
+
+    private val backupManager = vn.lobie.mytube.data.importer.BackupRestoreManager(app, db)
+
+    private val _backupStatus = MutableStateFlow<String?>(null)
+    val backupStatus: StateFlow<String?> = _backupStatus.asStateFlow()
+
+    fun clearBackupStatus() {
+        _backupStatus.value = null
+    }
+
+    fun exportBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = backupManager.exportBackupJson(uri)
+            _backupStatus.value = result.fold(
+                onSuccess = { count -> "Đã sao lưu thành công $count mục vào tệp JSON!" },
+                onFailure = { err -> "Sao lưu thất bại: ${err.message}" }
+            )
+        }
+    }
+
+    fun restoreBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = backupManager.restoreBackupJson(uri)
+            _backupStatus.value = result.fold(
+                onSuccess = { stats ->
+                    "Phục hồi thành công: ${stats.subscriptionsCount} kênh, ${stats.historyCount} lịch sử, ${stats.likedCount} đã thích, ${stats.playlistsCount} danh sách phát!"
+                },
+                onFailure = { err -> "Phục hồi thất bại: ${err.message}" }
+            )
+        }
+    }
+
+    fun importSubscriptions(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = backupManager.importSubscriptionsFromFile(uri)
+            _backupStatus.value = result.fold(
+                onSuccess = { count -> "Đã nhập thành công $count kênh đăng ký!" },
+                onFailure = { err -> "Nhập kênh thất bại: ${err.message}" }
+            )
+        }
+    }
 }

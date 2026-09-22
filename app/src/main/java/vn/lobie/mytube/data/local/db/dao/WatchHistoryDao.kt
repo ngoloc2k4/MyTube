@@ -12,8 +12,14 @@ interface WatchHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: WatchHistoryEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entries: List<WatchHistoryEntity>)
+
     @Query("SELECT * FROM watch_history ORDER BY timestamp DESC")
     fun getAll(): Flow<List<WatchHistoryEntity>>
+
+    @Query("SELECT * FROM watch_history ORDER BY timestamp DESC")
+    suspend fun getAllList(): List<WatchHistoryEntity>
 
     @Query("SELECT * FROM watch_history ORDER BY timestamp DESC LIMIT :limit")
     fun getRecent(limit: Int): Flow<List<WatchHistoryEntity>>

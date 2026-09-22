@@ -129,4 +129,17 @@
     <string name="remove_from_history">Remove from history</string>
     <string name="confirm_action">Clear</string>
     <string name="cancel_action">Cancel</string>
+    <string name="comments_title">Comments</string>
+    <string name="comments_empty">No comments yet</string>
+    <string name="comments_loading">Loading comments…</string>
+    <string name="comments_view_all">View all comments</string>
+    <string name="pinned_comment">Pinned</string>
+    <string name="channel_owner">Creator</string>
+    <string name="backup_and_restore">Backup &amp; Restore</string>
+    <string name="backup_export">Export Backup</string>
+    <string name="backup_export_desc">Save subscriptions, history, likes, and playlists to JSON</string>
+    <string name="backup_restore">Restore Backup</string>
+    <string name="backup_restore_desc">Restore data from a MyTube JSON backup file</string>
+    <string name="import_subscriptions">Import Subscriptions</string>
+    <string name="import_subscriptions_desc">Import channels from Google Takeout (CSV) or NewPipe (JSON)</string>
 </resources>

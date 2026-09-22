@@ -1,5 +1,8 @@
 package vn.lobie.mytube.ui.subscriptions
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,10 +12,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -45,6 +50,23 @@ fun SubscriptionsScreen(
     val feedVideos by viewModel.feedVideos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val importStatus by viewModel.importStatus.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(importStatus) {
+        importStatus?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            viewModel.clearImportStatus()
+        }
+    }
+
+    val importSubsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importSubscriptionsFromUri(uri)
+        }
+    }
 
     val isTablet = vn.lobie.mytube.ui.theme.LocalIsTablet.current
     val chunkedVideos = remember(feedVideos) { feedVideos.chunked(2) }
@@ -60,6 +82,14 @@ fun SubscriptionsScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = {
+                        importSubsLauncher.launch(arrayOf("*/*", "text/csv", "application/json"))
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = "Nhập kênh đăng ký"
+                        )
+                    }
                     IconButton(onClick = { viewModel.refresh() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -100,11 +130,25 @@ fun SubscriptionsScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Subscribe to channels while watching videos to see their latest uploads here.",
+                        text = "Subscribe to channels while watching videos, or import your subscriptions from Google Takeout or NewPipe.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            importSubsLauncher.launch(arrayOf("*/*", "text/csv", "application/json"))
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Nhập kênh (Takeout / NewPipe)")
+                    }
                 }
             }
         } else {

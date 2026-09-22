@@ -147,6 +147,13 @@ class InvidiousApiClient(
         Result.failure(lastError ?: IOException("All Invidious instances failed"))
     }
 
+    suspend fun getComments(videoId: String): Result<List<vn.lobie.mytube.data.remote.dto.InvidiousCommentDto>> = withContext(Dispatchers.IO) {
+        val res: Result<vn.lobie.mytube.data.remote.dto.InvidiousCommentsResponseDto> = executeWithFallback { baseUrl ->
+            "$baseUrl/api/v1/comments/$videoId"
+        }
+        res.map { it.comments }
+    }
+
     private inline fun <reified T> executeWithFallback(
         urlBuilder: (String) -> String
     ): Result<T> {

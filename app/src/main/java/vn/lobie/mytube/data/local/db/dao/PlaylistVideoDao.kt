@@ -25,6 +25,9 @@ interface PlaylistVideoDao {
     @Query("SELECT * FROM playlist_videos WHERE playlistId = :playlistId ORDER BY sortOrder ASC, addedAt ASC")
     fun getByPlaylist(playlistId: Long): Flow<List<PlaylistVideoEntity>>
 
+    @Query("SELECT * FROM playlist_videos ORDER BY playlistId, sortOrder ASC, addedAt ASC")
+    suspend fun getAllList(): List<PlaylistVideoEntity>
+
     @Query("UPDATE playlist_videos SET sortOrder = :sortOrder WHERE id = :id")
     suspend fun updateSortOrder(id: Long, sortOrder: Int)
 

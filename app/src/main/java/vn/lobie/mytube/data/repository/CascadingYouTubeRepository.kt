@@ -119,6 +119,22 @@ class CascadingYouTubeRepository(
         return Result.failure(java.io.IOException(errMsg))
     }
 
+    override suspend fun getComments(videoId: String): Result<List<vn.lobie.mytube.domain.model.Comment>> {
+        for ((name, repo) in getSortedBrowsePipeline()) {
+            val result = repo.getComments(videoId)
+            val list = result.getOrNull()
+            if (result.isSuccess && !list.isNullOrEmpty()) {
+                Log.d("CascadingRepo", "getComments($videoId): succeeded using $name (${list.size} comments)")
+                return result
+            }
+        }
+        val invidiousResult = invidiousRepository.getComments(videoId)
+        if (invidiousResult.isSuccess) {
+            return invidiousResult
+        }
+        return Result.success(emptyList())
+    }
+
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
         vn.lobie.mytube.core.common.AppLogger.d("Source", "Requesting stream info (pipeline: ${enginePriority.joinToString(" -> ")})", videoId)
         for ((name, repo) in getSortedStreamPipeline()) {

@@ -9,4 +9,5 @@ interface YouTubeRepository {
     suspend fun search(query: String): Result<List<SearchResult>>
     suspend fun getVideoDetails(videoId: String): Result<Video>
     suspend fun getStreamInfo(videoId: String): Result<StreamInfo>
+    suspend fun getComments(videoId: String): Result<List<vn.lobie.mytube.domain.model.Comment>> = Result.success(emptyList())
 }

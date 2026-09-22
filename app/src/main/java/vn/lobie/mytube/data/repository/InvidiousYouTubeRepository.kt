@@ -40,6 +40,25 @@ class InvidiousYouTubeRepository(
         }
     }
 
+    override suspend fun getComments(videoId: String): Result<List<Comment>> {
+        val result = api.getComments(videoId)
+        return result.mapCatching { dtos ->
+            dtos.map { dto ->
+                Comment(
+                    id = dto.commentId,
+                    author = dto.author,
+                    authorAvatarUrl = dto.authorThumbnails.maxByOrNull { it.width }?.url ?: "",
+                    content = dto.content.ifBlank { dto.contentHtml },
+                    publishedTimeText = dto.publishedText,
+                    likeCount = dto.likeCount,
+                    replyCount = dto.replyCount,
+                    isPinned = dto.isPinned,
+                    isChannelOwner = dto.authorIsChannelOwner
+                )
+            }
+        }
+    }
+
     override suspend fun getStreamInfo(videoId: String): Result<StreamInfo> {
         val result = api.getVideo(videoId)
         return result.mapCatching { dto ->

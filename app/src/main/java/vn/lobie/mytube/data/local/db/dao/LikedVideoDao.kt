@@ -12,11 +12,17 @@ interface LikedVideoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: LikedVideoEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entries: List<LikedVideoEntity>)
+
     @Query("DELETE FROM liked_videos WHERE videoId = :videoId")
     suspend fun delete(videoId: String)
 
     @Query("SELECT * FROM liked_videos ORDER BY likedAt DESC")
     fun getAll(): Flow<List<LikedVideoEntity>>
+
+    @Query("SELECT * FROM liked_videos ORDER BY likedAt DESC")
+    suspend fun getAllList(): List<LikedVideoEntity>
 
     @Query("SELECT EXISTS(SELECT 1 FROM liked_videos WHERE videoId = :videoId)")
     fun isLiked(videoId: String): Flow<Boolean>
