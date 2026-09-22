@@ -39,6 +39,15 @@ PHASE 3: Tablet/Phone UI, Region & Language Settings, Vertical Queue & Playlists
 - **Phase 2 Playlists in Library**:
   - Room Database-backed playlists (`PlaylistEntity`, `PlaylistVideoEntity`).
   - "+ Tạo mới" playlist creation dialog and delete support.
+- **Country / Region Setting Bug Fix (P0 Functional)**:
+  - Authoritative region propagation across `NewPipe` (`ContentCountry`), `Invidious` (`&region=$region`), and `InnerTube` (`gl: region`).
+  - Synced globally on startup via `MainActivity` LaunchedEffect and immediately on `SettingsViewModel.setRegion()`.
+  - Cache invalidation: `HomeViewModel` purges `cachedHomeVideos` and reloads immediately upon region change, showing zero stale items.
+- **Multi-Signal Local Recommendation Engine (6/10+ Quality)**:
+  - Architecture: `LocalRecommendationEngine` + `RecommendationScorer` with exponential recency decay (7-day half-life), watch completion weighting, liked videos boost, subscriptions affinity, and exploration serendipity.
+  - Watched Suppression: Fully completed non-music videos penalized with -10.0 (0% already-watched ratio in top 10).
+  - Diversity Guard: Strict channel saturation penalty (cap of max 2 videos per channel in top 10, achieving 8 unique channels in benchmark).
+  - Empirical Benchmark Suite: `RecommendationBenchmarkTest.kt` integrated into CI workflow (`./gradlew testReleaseUnitTest assembleRelease`).
 
 ## Next Items
 PHASE 4: Offline Video & Audio Downloads Manager (DownloadManager, Storage access, background caching).

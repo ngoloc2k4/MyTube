@@ -17,8 +17,11 @@ class MusicViewModel(
     application: Application,
     private val repository: YouTubeRepository,
     private val recommendationsUseCase: GetRecommendationsUseCase = GetRecommendationsUseCase(
-        MyTubeDatabase.getInstance(application).watchHistoryDao(),
-        repository
+        watchHistoryDao = MyTubeDatabase.getInstance(application).watchHistoryDao(),
+        repository = repository,
+        likedVideoDao = MyTubeDatabase.getInstance(application).likedVideoDao(),
+        subscriptionDao = MyTubeDatabase.getInstance(application).subscriptionDao(),
+        hiddenVideoDao = MyTubeDatabase.getInstance(application).hiddenVideoDao()
     )
 ) : AndroidViewModel(application) {
 

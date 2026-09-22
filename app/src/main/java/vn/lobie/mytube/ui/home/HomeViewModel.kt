@@ -43,7 +43,14 @@ class HomeViewModel(
     private val repository: YouTubeRepository,
     private val database: MyTubeDatabase? = null,
     private val settingsDataStore: SettingsDataStore? = null,
-    private val getTrendingVideosUseCase: vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase = vn.lobie.mytube.domain.usecase.GetTrendingVideosUseCase(repository),
+    private val getRecommendationsUseCase: vn.lobie.mytube.domain.usecase.GetRecommendationsUseCase =
+        vn.lobie.mytube.domain.usecase.GetRecommendationsUseCase(
+            watchHistoryDao = database?.watchHistoryDao(),
+            repository = repository,
+            likedVideoDao = database?.likedVideoDao(),
+            subscriptionDao = database?.subscriptionDao(),
+            hiddenVideoDao = database?.hiddenVideoDao()
+        ),
     private val searchVideosUseCase: vn.lobie.mytube.domain.usecase.SearchVideosUseCase = vn.lobie.mytube.domain.usecase.SearchVideosUseCase(repository)
 ) : ViewModel() {
 
@@ -74,8 +81,17 @@ class HomeViewModel(
         if (settingsDataStore != null) {
             viewModelScope.launch {
                 settingsDataStore.contentRegion.collect { region ->
+                    val isRegionChanged = (repository as? CascadingYouTubeRepository)?.currentRegion != region
                     (repository as? CascadingYouTubeRepository)?.setRegion(region)
-                    loadRecommendedVideos()
+                    if (isRegionChanged) {
+                        cachedHomeVideos = emptyList()
+                    }
+                    loadRecommendedVideos(forceRefresh = isRegionChanged)
+                }
+            }
+            viewModelScope.launch {
+                settingsDataStore.contentLanguage.collect { lang ->
+                    (repository as? CascadingYouTubeRepository)?.setLanguage(lang)
                 }
             }
         } else {
@@ -83,9 +99,9 @@ class HomeViewModel(
         }
     }
 
-    fun loadRecommendedVideos() {
+    fun loadRecommendedVideos(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            if (cachedHomeVideos.isNotEmpty()) {
+            if (!forceRefresh && cachedHomeVideos.isNotEmpty()) {
                 _uiState.value = HomeUiState.Success(
                     videos = cachedHomeVideos,
                     selectedCategory = VideoCategory.ALL
@@ -95,109 +111,38 @@ class HomeViewModel(
             }
 
             try {
-                // 1. Fetch base trending videos
-                val trendingResult = getTrendingVideosUseCase()
-                val trendingVideos = trendingResult.getOrDefault(emptyList())
-
-                // 2. Fetch recommendations based on Watch History & Subscriptions
-                val recommendedVideos = mutableListOf<Video>()
-                val hiddenIds = try {
-                    database?.hiddenVideoDao()?.getAllHiddenIdsList()?.toSet() ?: emptySet()
-                } catch (e: Exception) {
-                    emptySet()
-                }
-
-                val recentHistory = try {
-                    database?.watchHistoryDao()?.getRecentList(5) ?: emptyList()
-                } catch (e: Exception) {
-                    emptyList()
-                }
-
-                val subscriptions = try {
-                    database?.subscriptionDao()?.getAllList() ?: emptyList()
-                } catch (e: Exception) {
-                    emptyList()
-                }
-
-                // Gather target search queries from history and subs (channels and topics)
-                val recommendationQueries = mutableListOf<String>()
-                subscriptions.take(3).forEach { sub ->
-                    if (sub.channelName.isNotBlank() && !recommendationQueries.contains(sub.channelName)) {
-                        recommendationQueries.add(sub.channelName)
+                val recResult = getRecommendationsUseCase(limit = 25)
+                recResult.onSuccess { videos ->
+                    if (videos.isNotEmpty()) {
+                        cachedHomeVideos = videos
+                        _uiState.value = HomeUiState.Success(
+                            videos = videos,
+                            selectedCategory = VideoCategory.ALL
+                        )
+                    } else if (cachedHomeVideos.isNotEmpty()) {
+                        _uiState.value = HomeUiState.Success(
+                            videos = cachedHomeVideos,
+                            selectedCategory = VideoCategory.ALL
+                        )
+                    } else {
+                        _uiState.value = HomeUiState.Success(
+                            videos = emptyList(),
+                            selectedCategory = VideoCategory.ALL
+                        )
                     }
-                }
-                recentHistory.take(3).forEach { history ->
-                    if (history.channelName.isNotBlank() && !recommendationQueries.contains(history.channelName)) {
-                        recommendationQueries.add(history.channelName)
+                }.onFailure { error ->
+                    Log.e("HomeViewModel", "Failed to load recommendations", error)
+                    if (cachedHomeVideos.isNotEmpty()) {
+                        _uiState.value = HomeUiState.Success(
+                            videos = cachedHomeVideos,
+                            selectedCategory = VideoCategory.ALL
+                        )
+                    } else {
+                        _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Không thể tải danh sách gợi ý")
                     }
-                }
-
-                // Query related videos asynchronously
-                if (recommendationQueries.isNotEmpty()) {
-                    val deferredResults = recommendationQueries.take(3).map { query ->
-                        async {
-                            searchVideosUseCase(query).getOrNull()?.mapNotNull { item ->
-                                if (item is SearchResult.VideoItem) item.video else null
-                            } ?: emptyList()
-                        }
-                    }
-                    val queryResults = deferredResults.awaitAll()
-                    queryResults.forEach { videos ->
-                        recommendedVideos.addAll(videos.take(4))
-                    }
-                }
-
-                // 3. Smart Interleaving: Interleave recommendations and trending videos
-                val combined = mutableListOf<Video>()
-                var recIdx = 0
-                var trendIdx = 0
-
-                while (recIdx < recommendedVideos.size || trendIdx < trendingVideos.size) {
-                    // Add 2 recommended
-                    var addedRec = 0
-                    while (recIdx < recommendedVideos.size && addedRec < 2) {
-                        combined.add(recommendedVideos[recIdx++])
-                        addedRec++
-                    }
-                    // Add 2 trending
-                    var addedTrend = 0
-                    while (trendIdx < trendingVideos.size && addedTrend < 2) {
-                        combined.add(trendingVideos[trendIdx++])
-                        addedTrend++
-                    }
-                }
-
-                // If combined is still empty (e.g. offline or API issues), fallback to trending
-                val finalList = if (combined.isNotEmpty()) combined else trendingVideos
-
-                // 4. Strict Deduplication: filter hidden videos & ensure NO DUPLICATES
-                val deduplicatedVideos = finalList
-                    .filterNot { hiddenIds.contains(it.id) }
-                    .distinctBy { it.id }
-
-                if (deduplicatedVideos.isNotEmpty()) {
-                    cachedHomeVideos = deduplicatedVideos
-                    _uiState.value = HomeUiState.Success(
-                        videos = deduplicatedVideos,
-                        selectedCategory = VideoCategory.ALL
-                    )
-                } else if (cachedHomeVideos.isNotEmpty()) {
-                    _uiState.value = HomeUiState.Success(
-                        videos = cachedHomeVideos,
-                        selectedCategory = VideoCategory.ALL
-                    )
-                } else if (trendingResult.isFailure) {
-                    _uiState.value = HomeUiState.Error(
-                        trendingResult.exceptionOrNull()?.localizedMessage ?: "Failed to load videos"
-                    )
-                } else {
-                    _uiState.value = HomeUiState.Success(
-                        videos = emptyList(),
-                        selectedCategory = VideoCategory.ALL
-                    )
                 }
             } catch (e: Exception) {
-                Log.e("HomeViewModel", "Error loading recommended feed", e)
+                Log.e("HomeViewModel", "Error in loadRecommendedVideos", e)
                 if (cachedHomeVideos.isNotEmpty()) {
                     _uiState.value = HomeUiState.Success(
                         videos = cachedHomeVideos,
@@ -211,7 +156,7 @@ class HomeViewModel(
     }
 
     fun loadTrendingVideos() {
-        loadRecommendedVideos()
+        loadRecommendedVideos(forceRefresh = true)
     }
 
     fun selectCategory(category: VideoCategory) {
