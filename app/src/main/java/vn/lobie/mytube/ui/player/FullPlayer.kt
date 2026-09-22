@@ -1,4 +1,4 @@
-@file:OptIn(
+@file:kotlin.OptIn(
     androidx.media3.common.util.UnstableApi::class,
     androidx.compose.material3.ExperimentalMaterial3Api::class
 )
@@ -11,7 +11,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import androidx.activity.compose.BackHandler
-import androidx.annotation.OptIn
+import kotlin.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
