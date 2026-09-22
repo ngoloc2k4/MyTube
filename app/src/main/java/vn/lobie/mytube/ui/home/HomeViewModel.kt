@@ -296,11 +296,12 @@ class HomeViewModel(
     }
 
     fun performSearch(query: String) {
-        if (query.isBlank()) {
+        val sanitized = vn.lobie.mytube.core.common.SecurityUtils.sanitizeSearchQuery(query)
+        if (sanitized.isBlank()) {
             loadRecommendedVideos()
             return
         }
-        val trimmedQuery = query.trim()
+        val trimmedQuery = sanitized
         viewModelScope.launch {
             settingsDataStore?.addSearchHistory(trimmedQuery)
         }

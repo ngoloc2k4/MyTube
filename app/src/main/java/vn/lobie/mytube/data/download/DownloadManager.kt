@@ -265,6 +265,14 @@ class DownloadManager private constructor(private val context: Context) {
                 return false
             }
 
+            // SEC-25: Validate that response MIME type matches audio/video media
+            val contentType = response.header("Content-Type")
+            if (!vn.lobie.mytube.core.common.SecurityUtils.isValidMediaContentType(contentType)) {
+                Log.e("DownloadManager", "Rejected download with untrusted Content-Type: $contentType from $url")
+                response.close()
+                return false
+            }
+
             val body = response.body ?: run {
                 response.close()
                 return false

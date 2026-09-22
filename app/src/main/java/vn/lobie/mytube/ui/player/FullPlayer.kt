@@ -526,9 +526,10 @@ fun FullPlayer(
                         item {
                             FilledTonalButton(
                                 onClick = {
+                                    val cleanUrl = vn.lobie.mytube.core.common.SecurityUtils.stripTrackingParams("https://youtu.be/${video.id}")
                                     val sendIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, "${video.title}\nhttps://youtu.be/${video.id}")
+                                        putExtra(Intent.EXTRA_TEXT, "${video.title}\n$cleanUrl")
                                         type = "text/plain"
                                     }
                                     val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_video_title))
@@ -1226,9 +1227,10 @@ fun FullPlayer(
                             item {
                                 FilledTonalButton(
                                     onClick = {
+                                        val cleanUrl = vn.lobie.mytube.core.common.SecurityUtils.stripTrackingParams("https://youtu.be/${video.id}")
                                         val sendIntent = Intent().apply {
                                             action = Intent.ACTION_SEND
-                                            putExtra(Intent.EXTRA_TEXT, "${video.title}\nhttps://youtu.be/${video.id}")
+                                            putExtra(Intent.EXTRA_TEXT, "${video.title}\n$cleanUrl")
                                             type = "text/plain"
                                         }
                                         val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_video_title))

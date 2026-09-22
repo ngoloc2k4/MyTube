@@ -33,6 +33,13 @@ class CascadingYouTubeRepository(
         }
     }
 
+    // SEC-24: Circuit breakers per engine to mitigate request amplification and retry storms
+    private val circuitBreakers = mapOf(
+        "NewPipe" to vn.lobie.mytube.core.common.SecurityUtils.CircuitBreaker(failureThreshold = 4, resetTimeoutMs = 30_000L),
+        "Invidious" to vn.lobie.mytube.core.common.SecurityUtils.CircuitBreaker(failureThreshold = 4, resetTimeoutMs = 30_000L),
+        "InnerTube" to vn.lobie.mytube.core.common.SecurityUtils.CircuitBreaker(failureThreshold = 4, resetTimeoutMs = 30_000L)
+    )
+
     private fun getSortedStreamPipeline(): List<Pair<String, YouTubeRepository>> {
         val map = mapOf(
             "NewPipe" to newPipeRepository,
@@ -40,7 +47,10 @@ class CascadingYouTubeRepository(
             "InnerTube" to innerTubeRepository
         )
         val ordered = enginePriority.mapNotNull { name -> map[name]?.let { name to it } }
-        return if (ordered.isNotEmpty()) ordered else listOf("NewPipe" to newPipeRepository, "Invidious" to invidiousRepository, "InnerTube" to innerTubeRepository)
+        val pipeline = if (ordered.isNotEmpty()) ordered else listOf("NewPipe" to newPipeRepository, "Invidious" to invidiousRepository, "InnerTube" to innerTubeRepository)
+        // Filter out tripped circuit breakers if at least one healthy engine remains
+        val available = pipeline.filter { circuitBreakers[it.first]?.canExecute() != false }
+        return if (available.isNotEmpty()) available else pipeline
     }
 
     private fun getSortedBrowsePipeline(): List<Pair<String, YouTubeRepository>> {
@@ -144,18 +154,21 @@ class CascadingYouTubeRepository(
                 val result = repo.getStreamInfo(videoId)
                 val info = result.getOrNull()
                 if (result.isSuccess && info != null && (info.videoStreams.isNotEmpty() || !info.hlsUrl.isNullOrEmpty() || info.audioStreams.isNotEmpty())) {
+                    circuitBreakers[name]?.recordSuccess()
                     val sampleStream = info.videoStreams.firstOrNull()?.url ?: info.hlsUrl ?: info.audioStreams.firstOrNull()?.url
                     val masked = sampleStream?.let { vn.lobie.mytube.core.common.AppLogger.maskUrl(it) } ?: "none"
                     Log.d("CascadingRepo", "getStreamInfo($videoId): succeeded using $name (hls=${!info.hlsUrl.isNullOrEmpty()}, videoStreams=${info.videoStreams.size}, audioStreams=${info.audioStreams.size})")
                     vn.lobie.mytube.core.common.AppLogger.i("Source", "$name succeeded [streams=${info.videoStreams.size}, hls=${!info.hlsUrl.isNullOrEmpty()}], url=$masked", videoId)
                     return Result.success(info.copy(source = name))
                 } else {
+                    circuitBreakers[name]?.recordFailure()
                     val errMsg = result.exceptionOrNull()?.message ?: "no playable streams"
                     Log.w("CascadingRepo", "getStreamInfo($videoId): $name returned no playable streams or failed -> $errMsg")
                     vn.lobie.mytube.core.common.AppLogger.w("Source", "$name failed: $errMsg", videoId)
                     vn.lobie.mytube.core.common.AppLogger.i("Fallback", "Cascading: falling back from $name to next engine in pipeline", videoId)
                 }
             } catch (e: Exception) {
+                circuitBreakers[name]?.recordFailure()
                 Log.e("CascadingRepo", "getStreamInfo($videoId): $name threw exception", e)
                 vn.lobie.mytube.core.common.AppLogger.w("Source", "$name threw exception: ${e.message}", videoId, raw = e.stackTraceToString())
                 vn.lobie.mytube.core.common.AppLogger.i("Fallback", "Cascading: falling back from $name after exception", videoId)

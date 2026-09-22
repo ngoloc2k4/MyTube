@@ -62,6 +62,10 @@ class MainActivity : ComponentActivity() {
         // SEC-14: Mitigate Tapjacking / Overlay attacks by ignoring obscured touches across the activity window
         findViewById<android.view.View>(android.R.id.content)?.filterTouchesWhenObscured = true
         vn.lobie.mytube.core.common.AppLogger.init(applicationContext)
+        // SEC-22 & SEC-23: Device posture and integrity validation
+        val isRooted = vn.lobie.mytube.core.common.SecurityUtils.isDeviceRooted()
+        val isSignatureValid = vn.lobie.mytube.core.common.SecurityUtils.verifyAppSignature(this)
+        vn.lobie.mytube.core.common.AppLogger.i("Security", "Device integrity: isRooted=$isRooted, isSignatureValid=$isSignatureValid")
         enableEdgeToEdge()
         setContent {
             MyTubeTheme {
