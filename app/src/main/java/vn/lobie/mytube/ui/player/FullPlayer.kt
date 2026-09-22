@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.compose.material3.ExperimentalMaterial3Api::class
+)
+
 package vn.lobie.mytube.ui.player
 
 import android.app.Activity
