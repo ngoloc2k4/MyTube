@@ -624,58 +624,6 @@ fun FullPlayer(
                             }
                         }
 
-                        item {
-                            FilledTonalButton(
-                                onClick = onToggleLoopMode,
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    contentColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = when (uiState.loopMode) {
-                                        LoopMode.ONE -> Icons.Default.RepeatOne
-                                        else -> Icons.Default.Repeat
-                                    },
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = when (uiState.loopMode) {
-                                        LoopMode.OFF -> stringResource(R.string.loop_mode_off)
-                                        LoopMode.ONE -> stringResource(R.string.loop_mode_one)
-                                        LoopMode.ALL -> stringResource(R.string.loop_mode_all)
-                                    },
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
-                        }
-
-                        item {
-                            FilledTonalButton(
-                                onClick = onToggleShuffle,
-                                shape = CircleShape,
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    contentColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Shuffle,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = stringResource(R.string.shuffle_mode),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                            }
-                        }
 
                         item {
                             FilledTonalButton(
@@ -1328,60 +1276,6 @@ fun FullPlayer(
                                     Text(text = "PiP", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
-
-                            item {
-                                FilledTonalButton(
-                                    onClick = onToggleLoopMode,
-                                    shape = CircleShape,
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        contentColor = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = when (uiState.loopMode) {
-                                            LoopMode.ONE -> Icons.Default.RepeatOne
-                                            else -> Icons.Default.Repeat
-                                        },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = when (uiState.loopMode) {
-                                            LoopMode.OFF -> stringResource(R.string.loop_mode_off)
-                                            LoopMode.ONE -> stringResource(R.string.loop_mode_one)
-                                            LoopMode.ALL -> stringResource(R.string.loop_mode_all)
-                                        },
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
-                            }
-
-                            item {
-                                FilledTonalButton(
-                                    onClick = onToggleShuffle,
-                                    shape = CircleShape,
-                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        contentColor = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Shuffle,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.shuffle_mode),
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                }
-                            }
-
                             item {
                                 FilledTonalButton(
                                     onClick = { showSleepTimerDialog = true },
@@ -2369,19 +2263,6 @@ private fun VideoPlayerSurface(
     var seekFeedbackJob by remember { mutableStateOf<Job?>(null) }
     var isSpeedBoosted by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-    val activity = context as? Activity
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
-    val maxVolume = remember { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
-
-    var gestureIndicatorText by remember { mutableStateOf<String?>(null) }
-    var gestureIndicatorIcon by remember { mutableStateOf<ImageVector?>(null) }
-    var gestureIndicatorPercent by remember { mutableStateOf<Float?>(null) }
-    var gestureIndicatorJob by remember { mutableStateOf<Job?>(null) }
-    var isDraggingLeft by remember { mutableStateOf(false) }
-
-    var gestureDragDelta by remember { mutableStateOf(0f) }
-
     Box(
         modifier = modifier
             .background(Color.Black)
@@ -2424,86 +2305,12 @@ private fun VideoPlayerSurface(
                 )
             }
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isDraggingLeft = offset.x < size.width / 2
-                        gestureDragDelta = 0f
-                    },
-                    onDragEnd = {
-                        gestureDragDelta = 0f
-                    },
-                    onDragCancel = {
-                        gestureDragDelta = 0f
-                    },
-                    onDrag = { change, dragAmount ->
+                detectDragGestures { change, dragAmount ->
+                    if (!uiState.isFullscreen && dragAmount.y > 50f && abs(dragAmount.x) < 30f) {
                         change.consume()
-                        if (!uiState.isFullscreen && dragAmount.y > 60f && abs(dragAmount.x) < 30f) {
-                            onCollapse()
-                            return@detectDragGestures
-                        }
-
-                        val deltaY = -dragAmount.y
-                        if (isDraggingLeft) {
-                            activity?.let { act ->
-                                runCatching {
-                                    val layoutParams = act.window.attributes
-                                    var currentBrightness = layoutParams.screenBrightness
-                                    if (currentBrightness < 0f) currentBrightness = 0.5f
-                                    val newBrightness = (currentBrightness + deltaY / 400f).coerceIn(0.01f, 1.0f)
-                                    layoutParams.screenBrightness = newBrightness
-                                    act.window.attributes = layoutParams
-
-                                    val percent = (newBrightness * 100).toInt().coerceIn(1, 100)
-                                    gestureIndicatorText = "$percent%"
-                                    gestureIndicatorPercent = newBrightness.coerceIn(0f, 1f)
-                                    gestureIndicatorIcon = when {
-                                        newBrightness > 0.6f -> Icons.Default.BrightnessHigh
-                                        newBrightness > 0.3f -> Icons.Default.BrightnessMedium
-                                        else -> Icons.Default.BrightnessLow
-                                    }
-                                    gestureIndicatorJob?.cancel()
-                                    gestureIndicatorJob = coroutineScope.launch {
-                                        delay(1200)
-                                        gestureIndicatorText = null
-                                        gestureIndicatorIcon = null
-                                        gestureIndicatorPercent = null
-                                    }
-                                }
-                            }
-                        } else {
-                            audioManager?.let { am ->
-                                runCatching {
-                                    val safeMax = (if (maxVolume > 0) maxVolume else am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)).coerceAtLeast(1)
-                                    val currentVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                                    gestureDragDelta += deltaY
-                                    val stepThreshold = 30f
-                                    val steps = (gestureDragDelta / stepThreshold).toInt()
-                                    if (steps != 0) {
-                                        gestureDragDelta -= steps * stepThreshold
-                                        val newVol = (currentVol + steps).coerceIn(0, safeMax)
-                                        am.setStreamVolume(AudioManager.STREAM_MUSIC, newVol, 0)
-                                        val fraction = (newVol.toFloat() / safeMax).coerceIn(0f, 1f)
-                                        val percent = (fraction * 100).toInt().coerceIn(0, 100)
-                                        gestureIndicatorText = "$percent%"
-                                        gestureIndicatorPercent = fraction
-                                        gestureIndicatorIcon = when {
-                                            newVol == 0 -> Icons.Default.VolumeOff
-                                            newVol < safeMax / 2 -> Icons.Default.VolumeDown
-                                            else -> Icons.Default.VolumeUp
-                                        }
-                                        gestureIndicatorJob?.cancel()
-                                        gestureIndicatorJob = coroutineScope.launch {
-                                            delay(1200)
-                                            gestureIndicatorText = null
-                                            gestureIndicatorIcon = null
-                                            gestureIndicatorPercent = null
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        onCollapse()
                     }
-                )
+                }
             },
         contentAlignment = Alignment.Center
     ) {
@@ -2702,50 +2509,6 @@ private fun VideoPlayerSurface(
             }
         }
 
-        // Brightness & Volume HUD Indicator
-        if (gestureIndicatorText != null && gestureIndicatorIcon != null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.Black.copy(alpha = 0.8f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = gestureIndicatorIcon!!,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = gestureIndicatorText.orEmpty(),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        gestureIndicatorPercent?.let { percentVal ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { (gestureIndicatorPercent ?: percentVal).coerceIn(0f, 1f) },
-                                modifier = Modifier
-                                    .width(100.dp)
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.White.copy(alpha = 0.3f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         // Floating SponsorBlock Auto-Skip Notice
         val lastSkipped = uiState.lastSkippedSegment
@@ -2829,43 +2592,89 @@ private fun VideoPlayerSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End,
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Autoplay toggle button
-                    IconButton(onClick = onToggleAutoPlay) {
+                    // Left: Collapse chevron (YouTube style)
+                    IconButton(onClick = onCollapse) {
                         Icon(
-                            imageVector = if (uiState.isAutoPlayEnabled) Icons.Default.PlayCircle else Icons.Default.PauseCircleOutline,
-                            contentDescription = "Tự động phát",
-                            tint = if (uiState.isAutoPlayEnabled) Color.White else Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    // PiP button
-                    IconButton(onClick = onEnterPip) {
-                        Icon(
-                            imageVector = Icons.Default.PictureInPictureAlt,
-                            contentDescription = "Hình trong hình (PiP)",
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.collapse_player),
                             tint = Color.White,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    // Zoom / Aspect Ratio button
-                    IconButton(onClick = onToggleResizeMode) {
-                        Icon(
-                            imageVector = if (uiState.resizeMode == ResizeMode.ZOOM) Icons.Default.CropFree else Icons.Default.AspectRatio,
-                            contentDescription = stringResource(R.string.aspect_ratio),
-                            tint = if (uiState.resizeMode == ResizeMode.ZOOM) MaterialTheme.colorScheme.primary else Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    // Sleep Timer button
-                    IconButton(onClick = onOpenSleepTimerDialog) {
-                        Box(contentAlignment = Alignment.Center) {
+
+                    // Right: Actions row (Autoplay, Loop, Shuffle, CC, PiP, Resize, Sleep, Settings/Quality, Fullscreen)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Autoplay toggle button
+                        IconButton(onClick = onToggleAutoPlay) {
+                            Icon(
+                                imageVector = if (uiState.isAutoPlayEnabled) Icons.Default.PlayCircle else Icons.Default.PauseCircleOutline,
+                                contentDescription = "Tự động phát",
+                                tint = if (uiState.isAutoPlayEnabled) Color.White else Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Loop mode button (moved from center)
+                        IconButton(onClick = onToggleLoopMode) {
+                            Icon(
+                                imageVector = when (uiState.loopMode) {
+                                    LoopMode.ONE -> Icons.Default.RepeatOne
+                                    else -> Icons.Default.Repeat
+                                },
+                                contentDescription = stringResource(R.string.loop_mode),
+                                tint = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Shuffle button (moved from center)
+                        IconButton(onClick = onToggleShuffle) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = stringResource(R.string.shuffle_mode),
+                                tint = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Subtitles (CC) button
+                        IconButton(onClick = onOpenSubtitlesDialog) {
+                            Icon(
+                                imageVector = Icons.Default.ClosedCaption,
+                                contentDescription = stringResource(R.string.subtitles),
+                                tint = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // PiP button
+                        IconButton(onClick = onEnterPip) {
+                            Icon(
+                                imageVector = Icons.Default.PictureInPictureAlt,
+                                contentDescription = "Hình trong hình (PiP)",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Zoom / Aspect Ratio button
+                        IconButton(onClick = onToggleResizeMode) {
+                            Icon(
+                                imageVector = if (uiState.resizeMode == ResizeMode.ZOOM) Icons.Default.CropFree else Icons.Default.AspectRatio,
+                                contentDescription = stringResource(R.string.aspect_ratio),
+                                tint = if (uiState.resizeMode == ResizeMode.ZOOM) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Sleep Timer button
+                        IconButton(onClick = onOpenSleepTimerDialog) {
                             Icon(
                                 imageVector = Icons.Default.Bedtime,
                                 contentDescription = stringResource(R.string.sleep_timer),
@@ -2873,68 +2682,62 @@ private fun VideoPlayerSurface(
                                 modifier = Modifier.size(22.dp)
                             )
                         }
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    // Subtitles (CC) button
-                    IconButton(onClick = onOpenSubtitlesDialog) {
-                        Icon(
-                            imageVector = Icons.Default.ClosedCaption,
-                            contentDescription = stringResource(R.string.subtitles),
-                            tint = if (uiState.isSubtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    val sourceName = uiState.currentSourceName ?: "Auto"
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.75f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                        modifier = Modifier.padding(end = 6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+
+                        val sourceName = uiState.currentSourceName ?: "Auto"
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Black.copy(alpha = 0.75f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                            modifier = Modifier.padding(end = 4.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(if (sourceName == "Fallback") Color.Red else Color(0xFF4CAF50))
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                "[$sourceName · ${uiState.selectedQuality}]",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (sourceName == "Fallback") Color.Red else Color(0xFF4CAF50))
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    "[$sourceName · ${uiState.selectedQuality}]",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        // Quality indicator chip
+                        AssistChip(
+                            onClick = onOpenQualityDialog,
+                            label = { Text(uiState.selectedQuality, fontSize = 11.sp, color = Color.White) },
+                            colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // Speed indicator chip
+                        AssistChip(
+                            onClick = onOpenSpeedDialog,
+                            label = { Text("${uiState.playbackSpeed}x", fontSize = 11.sp, color = Color.White) },
+                            colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // Fullscreen toggle button
+                        IconButton(onClick = onToggleFullscreen) {
+                            Icon(
+                                imageVector = if (uiState.isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = stringResource(R.string.fullscreen_toggle),
+                                tint = Color.White
                             )
                         }
                     }
-                    // Quality indicator chip
-                    AssistChip(
-                        onClick = onOpenQualityDialog,
-                        label = { Text(uiState.selectedQuality, fontSize = 11.sp, color = Color.White) },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    // Speed indicator chip
-                    AssistChip(
-                        onClick = onOpenSpeedDialog,
-                        label = { Text("${uiState.playbackSpeed}x", fontSize = 11.sp, color = Color.White) },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = Color.Black.copy(alpha = 0.6f))
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    // Fullscreen toggle button
-                    IconButton(onClick = onToggleFullscreen) {
-                        Icon(
-                            imageVector = if (uiState.isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                            contentDescription = stringResource(R.string.fullscreen_toggle),
-                            tint = Color.White
-                        )
-                    }
                 }
 
-                // Center playback controls: Loop | SkipPrevious | Play/Pause | SkipNext | Shuffle
+                // Center playback controls: SkipPrevious | Play/Pause | SkipNext
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         color = MaterialTheme.colorScheme.primary,
@@ -2950,24 +2753,6 @@ private fun VideoPlayerSurface(
                             .fillMaxWidth()
                             .align(Alignment.Center)
                     ) {
-                        // Loop button
-                        IconButton(
-                            onClick = onToggleLoopMode,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = when (uiState.loopMode) {
-                                    LoopMode.ONE -> Icons.Default.RepeatOne
-                                    else -> Icons.Default.Repeat
-                                },
-                                contentDescription = stringResource(R.string.loop_mode),
-                                tint = if (uiState.loopMode != LoopMode.OFF) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
                         // Previous Video Button
                         IconButton(
                             onClick = onPlayPrevious,
@@ -2981,7 +2766,7 @@ private fun VideoPlayerSurface(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(24.dp))
+                        Spacer(modifier = Modifier.width(32.dp))
 
                         // Play/Pause Button
                         IconButton(
@@ -2996,7 +2781,7 @@ private fun VideoPlayerSurface(
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(24.dp))
+                        Spacer(modifier = Modifier.width(32.dp))
 
                         // Next Video Button
                         IconButton(
@@ -3008,21 +2793,6 @@ private fun VideoPlayerSurface(
                                 contentDescription = stringResource(R.string.skip_next),
                                 tint = Color.White,
                                 modifier = Modifier.size(38.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Shuffle button
-                        IconButton(
-                            onClick = onToggleShuffle,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shuffle,
-                                contentDescription = stringResource(R.string.shuffle_mode),
-                                tint = if (uiState.isShuffleEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.7f),
-                                modifier = Modifier.size(26.dp)
                             )
                         }
                     }
