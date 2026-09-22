@@ -32,3 +32,29 @@
 - [x] Client context & Innertube endpoint requests (WEB, ANDROID_TESTSUITE)
 - [x] Stream extraction & metadata parser
 - [x] 4-Tier Cascading Repository pipeline (Invidious -> InnerTube -> NewPipe -> Fake)
+
+## Giai đoạn Cải tiến 1: Core Hardening & Resilience
+- [x] Chuẩn hóa Chế độ Ngoại tuyến (Offline Error State) thay thế FakeRepo
+- [x] Tách tầng Domain UseCase (`GetStreamWithFallbackUseCase`, `SearchVideosUseCase`, `GetTrendingVideosUseCase`)
+- [x] Tích hợp bộ lọc bảo vệ quyền riêng tư (Privacy Toggles: SponsorBlock & Return YouTube Dislike)
+- [x] Bộ nhớ đệm Invidious Mirror Cache & kiểm tra độ trễ ping trực quan
+
+## Giai đoạn Cải tiến 2: Playback Polish & Nâng tầm tính năng Player
+- [x] Chuẩn hóa âm lượng (Audio Normalization / Loudness Enhancer)
+- [x] Hẹn giờ ngủ (Sleep Timer) kèm hiệu ứng hạ dần âm lượng (Fade-out)
+- [x] Hiệu ứng chuyển bài mượt (Crossfade)
+- [x] Hiệu ứng gợn sóng hình cung chạm 2 lần tua nhanh (Double-Tap Seek Ripple Arc & Dynamic Seek Duration)
+- [x] Lặp đoạn A-B (A-B Loop) & Tùy biến cỡ chữ / màu nền phụ đề (Subtitles Font & Background)
+- [x] Lịch sử tìm kiếm thông minh & Quản lý lịch sử xem (Pause / Clear Watch History)
+
+## Giai đoạn Cải tiến 3: Data Portability & Tương tác cộng đồng
+- [x] Nhập danh sách đăng ký từ Google Takeout CSV (`subscriptions.csv`) và NewPipe JSON
+- [x] Sao lưu & Phục hồi toàn vẹn 5 bảng Room DB ra file JSON qua Android SAF
+- [x] Trình xem bình luận video dạng ModalBottomSheet kéo vuốt kết nối API Invidious
+
+## Giai đoạn Cải tiến 4: Làm giàu dữ liệu âm nhạc (Metadata Enrichment) & Gợi ý Cục bộ
+- [x] Bóc tách & Chuẩn hóa tên bài hát / nghệ sĩ tự động từ video YouTube
+- [x] Tích hợp MusicBrainz & Cover Art Archive nạp ảnh bìa album gốc chất lượng cao cho chế độ Audio-only
+- [x] Thẻ thông tin bài hát (EnrichedMusicBanner) và hộp thoại tiểu sử nghệ sĩ từ Wikipedia / MusicBrainz
+- [x] Đồng bộ nghe nhạc ListenBrainz (Scrobbling) với User Token cá nhân
+- [x] Thuật toán gợi ý cá nhân hóa 100% cục bộ (Local Recommendation Engine) dựa trên lịch sử xem on-device
