@@ -288,13 +288,14 @@ class BackupRestoreManager(
                         val url = obj["url"]?.toString()?.trim('"') ?: ""
                         val name = obj["name"]?.toString()?.trim('"') ?: ""
                         val avatar = obj["avatar_url"]?.toString()?.trim('"') ?: ""
-                        val channelId = extractChannelIdFromUrl(url)
+                        val rawChannelId = extractChannelIdFromUrl(url)
+                        val channelId = sanitizeChannelId(rawChannelId)
                         if (channelId.isNotBlank()) {
                             results.add(
                                 SubscriptionEntity(
                                     channelId = channelId,
-                                    channelName = name.ifBlank { "Channel" },
-                                    avatarUrl = avatar
+                                    channelName = sanitizeText(name, 120).ifBlank { "Channel" },
+                                    avatarUrl = sanitizeText(avatar, 500)
                                 )
                             )
                         }
@@ -302,9 +303,10 @@ class BackupRestoreManager(
                 } else if (root is JsonArray) {
                     root.forEach { element ->
                         val obj = element as? JsonObject ?: return@forEach
-                        val channelId = obj["channelId"]?.toString()?.trim('"')
+                        val rawChannelId = obj["channelId"]?.toString()?.trim('"')
                             ?: obj["url"]?.toString()?.trim('"')?.let { extractChannelIdFromUrl(it) }
                             ?: ""
+                        val channelId = sanitizeChannelId(rawChannelId)
                         val name = obj["channelName"]?.toString()?.trim('"')
                             ?: obj["name"]?.toString()?.trim('"')
                             ?: "Channel"
@@ -315,8 +317,8 @@ class BackupRestoreManager(
                             results.add(
                                 SubscriptionEntity(
                                     channelId = channelId,
-                                    channelName = name,
-                                    avatarUrl = avatar
+                                    channelName = sanitizeText(name, 120).ifBlank { "Channel" },
+                                    avatarUrl = sanitizeText(avatar, 500)
                                 )
                             )
                         }
@@ -335,9 +337,11 @@ class BackupRestoreManager(
                 }
                 val tokens = parseCsvLine(lineTrimmed)
                 if (tokens.isNotEmpty()) {
-                    val channelId = tokens.getOrNull(0)?.trim() ?: ""
-                    val channelTitle = tokens.getOrNull(2)?.trim() ?: tokens.getOrNull(1)?.trim() ?: "Channel"
-                    if (channelId.startsWith("UC") || channelId.length in 18..34) {
+                    val rawChannelId = tokens.getOrNull(0)?.trim() ?: ""
+                    val rawTitle = tokens.getOrNull(2)?.trim() ?: tokens.getOrNull(1)?.trim() ?: "Channel"
+                    val channelId = sanitizeChannelId(rawChannelId)
+                    val channelTitle = sanitizeText(rawTitle, maxLen = 120)
+                    if (channelId.isNotBlank()) {
                         results.add(
                             SubscriptionEntity(
                                 channelId = channelId,
@@ -353,14 +357,32 @@ class BackupRestoreManager(
         return results.distinctBy { it.channelId }
     }
 
+    private fun sanitizeChannelId(raw: String): String {
+        val trimmed = raw.trim()
+        val cleaned = trimmed.replace(Regex("[^a-zA-Z0-9_-]"), "")
+        return if ((cleaned.startsWith("UC") || cleaned.length in 18..34) && cleaned.length <= 64) {
+            cleaned
+        } else if (cleaned.isNotBlank() && cleaned.length <= 64) {
+            cleaned
+        } else {
+            ""
+        }
+    }
+
+    private fun sanitizeText(raw: String, maxLen: Int = 200): String {
+        val cleaned = raw.replace(Regex("[\\p{Cntrl}&&[^\r\n\t]]"), "").trim()
+        return cleaned.take(maxLen)
+    }
+
     private fun extractChannelIdFromUrl(url: String): String {
         val clean = url.trim().trimEnd('/')
-        return when {
+        val extracted = when {
             clean.contains("/channel/") -> clean.substringAfterLast("/channel/").substringBefore('/')
             clean.contains("/c/") -> clean.substringAfterLast("/c/").substringBefore('/')
             clean.startsWith("UC") -> clean
             else -> clean.substringAfterLast('/')
         }
+        return sanitizeChannelId(extracted)
     }
 
     private fun parseCsvLine(line: String): List<String> {

@@ -55,6 +55,25 @@ class PlayerViewModel(
 
     companion object {
         const val FALLBACK_SAMPLE_STREAM = "https://media.w3.org/2010/05/sintel/trailer.mp4"
+
+        /**
+         * SEC-13: Validate media URI scheme to prevent scheme poisoning or arbitrary protocol execution.
+         * Only https, http, and file schemes are permitted for playback.
+         */
+        fun validateMediaUri(rawUri: String): String {
+            val trimmed = rawUri.trim()
+            val uri = try {
+                Uri.parse(trimmed)
+            } catch (_: Exception) {
+                return FALLBACK_SAMPLE_STREAM
+            }
+            val scheme = uri.scheme?.lowercase() ?: ""
+            return if (scheme == "https" || scheme == "http" || scheme == "file") {
+                trimmed
+            } else {
+                FALLBACK_SAMPLE_STREAM
+            }
+        }
     }
 
     private val database = MyTubeDatabase.getInstance(application)
@@ -482,7 +501,8 @@ class PlayerViewModel(
     }
 
     private fun setPlayerMedia(url: String, video: Video, startPositionMs: Long) {
-        val maskedUrl = vn.lobie.mytube.core.common.AppLogger.maskUrl(url)
+        val safeUrl = validateMediaUri(url)
+        val maskedUrl = vn.lobie.mytube.core.common.AppLogger.maskUrl(safeUrl)
         vn.lobie.mytube.core.common.AppLogger.i(
             tag = "Player",
             msg = "Loading media '${video.title}' [source=${_uiState.value.currentSourceName}, quality=${_uiState.value.selectedQuality}, url=$maskedUrl]",
@@ -490,7 +510,7 @@ class PlayerViewModel(
         )
 
         val mediaItem = MediaItem.Builder()
-            .setUri(url)
+            .setUri(safeUrl)
             .setMediaId(video.id)
             .setMediaMetadata(
                 MediaMetadata.Builder()

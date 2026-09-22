@@ -192,10 +192,11 @@ class SettingsViewModel(
         calculateCacheSize()
     }
 
+    private val cacheLock = kotlinx.coroutines.sync.Mutex()
+
     fun calculateCacheSize() {
         viewModelScope.launch(Dispatchers.IO) {
-            val cacheDir = app.cacheDir
-            val size = getDirSize(cacheDir)
+            val size = getDirSize(app.cacheDir)
             _currentCacheBytes.value = size
         }
     }
@@ -211,20 +212,31 @@ class SettingsViewModel(
 
     fun clearCache() {
         viewModelScope.launch(Dispatchers.IO) {
+            // SEC-17: Guard cache directory cleanup with Mutex to prevent race conditions during concurrent file access
+            if (!cacheLock.tryLock()) {
+                return@launch
+            }
             try {
-                deleteDir(app.cacheDir)
-            } catch (_: Exception) {}
+                deleteDirContent(app.cacheDir)
+            } catch (_: Exception) {
+            } finally {
+                cacheLock.unlock()
+            }
             calculateCacheSize()
         }
     }
 
-    private fun deleteDir(dir: File): Boolean {
-        val files = dir.listFiles() ?: return true
+    private fun deleteDirContent(dir: File) {
+        val files = dir.listFiles() ?: return
         for (file in files) {
-            if (file.isDirectory) deleteDir(file)
-            file.delete()
+            try {
+                if (file.isDirectory) {
+                    file.deleteRecursively()
+                } else {
+                    file.delete()
+                }
+            } catch (_: Exception) {}
         }
-        return true
     }
 
     fun setTheme(mode: String) {

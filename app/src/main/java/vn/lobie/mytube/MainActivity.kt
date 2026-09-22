@@ -59,6 +59,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // SEC-14: Mitigate Tapjacking / Overlay attacks by ignoring obscured touches across the activity window
+        findViewById<android.view.View>(android.R.id.content)?.filterTouchesWhenObscured = true
         vn.lobie.mytube.core.common.AppLogger.init(applicationContext)
         enableEdgeToEdge()
         setContent {

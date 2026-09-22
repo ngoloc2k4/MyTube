@@ -121,6 +121,32 @@ class InvidiousApiClient(
     @Volatile
     var region: String = "VN"
 
+    // SEC-15: Throttle requests to avoid spamming Invidious instances and getting IP-blocked
+    @Volatile
+    private var lastRequestTimeMs = 0L
+    private val requestThrottleLock = Any()
+
+    private fun throttleRequest() {
+        val minIntervalMs = 150L // Cap burst to ~6-7 req/sec
+        val now = System.currentTimeMillis()
+        val waitTime: Long
+        synchronized(requestThrottleLock) {
+            val elapsed = now - lastRequestTimeMs
+            if (elapsed < minIntervalMs) {
+                waitTime = minIntervalMs - elapsed
+                lastRequestTimeMs = now + waitTime
+            } else {
+                waitTime = 0L
+                lastRequestTimeMs = now
+            }
+        }
+        if (waitTime > 0L) {
+            try {
+                Thread.sleep(waitTime)
+            } catch (_: InterruptedException) {}
+        }
+    }
+
     private fun getBaseUrl(): String {
         return instances[currentInstanceIndex % instances.size]
     }
@@ -148,6 +174,7 @@ class InvidiousApiClient(
             val baseUrl = getBaseUrl()
             val url = "$baseUrl/api/v1/videos/$videoId"
             try {
+                throttleRequest()
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
@@ -190,6 +217,7 @@ class InvidiousApiClient(
             val baseUrl = getBaseUrl()
             val url = urlBuilder(baseUrl)
             try {
+                throttleRequest()
                 val request = Request.Builder()
                     .url(url)
                     .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
