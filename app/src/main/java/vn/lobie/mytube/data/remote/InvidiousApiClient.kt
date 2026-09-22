@@ -164,7 +164,7 @@ class InvidiousApiClient(
     suspend fun search(query: String): Result<List<InvidiousVideoDto>> = withContext(Dispatchers.IO) {
         val encoded = java.net.URLEncoder.encode(query, "UTF-8")
         executeWithFallback { baseUrl ->
-            "$baseUrl/api/v1/search?q=$encoded&type=video"
+            "$baseUrl/api/v1/search?q=$encoded&type=video&region=$region"
         }
     }
 

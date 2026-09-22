@@ -5,6 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.localization.ContentCountry
+import org.schabi.newpipe.extractor.localization.Localization
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import vn.lobie.mytube.data.remote.newpipe.NewPipeDownloader
 import vn.lobie.mytube.domain.model.*
@@ -15,11 +17,22 @@ class NewPipeYouTubeRepository(
     private val downloader: NewPipeDownloader = NewPipeDownloader()
 ) : YouTubeRepository {
 
+    @Volatile
+    var region: String = "VN"
+        private set
+
+    @Volatile
+    var language: String = "vi"
+        private set
+
     companion object {
         private val isInitialized = AtomicBoolean(false)
 
-        fun ensureInitialized(downloader: NewPipeDownloader) {
-            if (isInitialized.compareAndSet(false, true)) {
+        fun ensureInitialized(downloader: NewPipeDownloader, localization: Localization? = null, contentCountry: ContentCountry? = null) {
+            if (localization != null && contentCountry != null) {
+                NewPipe.init(downloader, localization, contentCountry)
+                isInitialized.set(true)
+            } else if (isInitialized.compareAndSet(false, true)) {
                 NewPipe.init(downloader)
             }
         }
@@ -29,9 +42,40 @@ class NewPipeYouTubeRepository(
         ensureInitialized(downloader)
     }
 
+    fun setRegion(newRegion: String) {
+        if (newRegion.isNotBlank() && this.region != newRegion) {
+            this.region = newRegion
+            updateNewPipeLocalization()
+        }
+    }
+
+    fun setLanguage(newLanguage: String) {
+        if (newLanguage.isNotBlank() && this.language != newLanguage) {
+            this.language = newLanguage
+            updateNewPipeLocalization()
+        }
+    }
+
+    private fun updateNewPipeLocalization() {
+        try {
+            val loc = Localization.fromLocalizationCode(language)
+            val cc = ContentCountry(region)
+            NewPipe.init(downloader, loc, cc)
+            Log.d("NewPipeRepo", "NewPipe initialized with region=$region, language=$language")
+        } catch (e: Exception) {
+            Log.w("NewPipeRepo", "Failed to update NewPipe localization/contentCountry: ${e.message}")
+        }
+    }
+
     override suspend fun getTrendingVideos(): Result<List<Video>> = withContext(Dispatchers.IO) {
         runCatching {
             val kiosk = ServiceList.YouTube.kioskList.defaultKioskExtractor
+            try {
+                kiosk.forceContentCountry(ContentCountry(region))
+                kiosk.forceLocalization(Localization.fromLocalizationCode(language))
+            } catch (e: Exception) {
+                Log.w("NewPipeRepo", "Unable to set forced content country on kiosk: ${e.message}")
+            }
             kiosk.fetchPage()
             kiosk.initialPage.items.filterIsInstance<StreamInfoItem>().map { it.toDomainModel() }
         }.onFailure {
@@ -42,6 +86,12 @@ class NewPipeYouTubeRepository(
     override suspend fun search(query: String): Result<List<SearchResult>> = withContext(Dispatchers.IO) {
         runCatching {
             val searchExtractor = ServiceList.YouTube.getSearchExtractor(query)
+            try {
+                searchExtractor.forceContentCountry(ContentCountry(region))
+                searchExtractor.forceLocalization(Localization.fromLocalizationCode(language))
+            } catch (e: Exception) {
+                Log.w("NewPipeRepo", "Unable to set forced content country on search: ${e.message}")
+            }
             searchExtractor.fetchPage()
             searchExtractor.initialPage.items.filterIsInstance<StreamInfoItem>().map {
                 SearchResult.VideoItem(it.toDomainModel())

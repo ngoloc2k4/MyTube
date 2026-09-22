@@ -264,10 +264,12 @@ class SettingsViewModel(
     }
 
     fun setLanguage(lang: String) {
+        repository?.setLanguage(lang)
         viewModelScope.launch { settingsDataStore.setContentLanguage(lang) }
     }
 
     fun setRegion(region: String) {
+        repository?.setRegion(region)
         viewModelScope.launch { settingsDataStore.setContentRegion(region) }
     }
 

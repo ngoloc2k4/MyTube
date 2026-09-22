@@ -77,6 +77,19 @@ class MainActivity : ComponentActivity() {
                     val database = remember { MyTubeDatabase.getInstance(applicationContext) }
                     val settingsDataStore = remember { SettingsDataStore(applicationContext) }
 
+                    androidx.compose.runtime.LaunchedEffect(settingsDataStore) {
+                        launch {
+                            settingsDataStore.contentRegion.collect { region ->
+                                repository.setRegion(region)
+                            }
+                        }
+                        launch {
+                            settingsDataStore.contentLanguage.collect { lang ->
+                                repository.setLanguage(lang)
+                            }
+                        }
+                    }
+
                     val homeViewModel: HomeViewModel = viewModel {
                         HomeViewModel(repository, database, settingsDataStore)
                     }

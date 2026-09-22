@@ -57,13 +57,31 @@ class CascadingYouTubeRepository(
         return getSortedStreamPipeline()
     }
 
+    @Volatile
+    var currentRegion: String = "VN"
+        private set
+
+    @Volatile
+    var currentLanguage: String = "vi"
+        private set
+
     fun setRegion(region: String) {
-        (invidiousRepository as? InvidiousYouTubeRepository)?.setRegion(region)
-        (innerTubeRepository as? InnerTubeYouTubeRepository)?.setRegion(region)
+        if (region.isNotBlank()) {
+            currentRegion = region
+            (newPipeRepository as? NewPipeYouTubeRepository)?.setRegion(region)
+            (invidiousRepository as? InvidiousYouTubeRepository)?.setRegion(region)
+            (innerTubeRepository as? InnerTubeYouTubeRepository)?.setRegion(region)
+            Log.d("CascadingRepo", "Propagated region=$region to NewPipe, Invidious, InnerTube")
+        }
     }
 
     fun setLanguage(language: String) {
-        (innerTubeRepository as? InnerTubeYouTubeRepository)?.setLanguage(language)
+        if (language.isNotBlank()) {
+            currentLanguage = language
+            (newPipeRepository as? NewPipeYouTubeRepository)?.setLanguage(language)
+            (innerTubeRepository as? InnerTubeYouTubeRepository)?.setLanguage(language)
+            Log.d("CascadingRepo", "Propagated language=$language to NewPipe, InnerTube")
+        }
     }
 
     @Volatile
