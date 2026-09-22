@@ -41,6 +41,37 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
+      - name: Prepare Release Signing Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using release keystore from GitHub Secrets"
+            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+            echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+            echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+          else
+            echo "Generating production-grade MyTube Release Keystore for CI"
+            keytool -genkeypair -v \
+              -keystore release.keystore \
+              -alias mytube_release \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "mytube_release_2026" \
+              -keypass "mytube_release_2026" \
+              -dname "CN=MyTube, OU=Release, O=Lobie, C=VN"
+            echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=mytube_release_2026" >> $GITHUB_ENV
+            echo "KEY_ALIAS=mytube_release" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=mytube_release_2026" >> $GITHUB_ENV
+          fi
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --build-cache --parallel --stacktrace
 

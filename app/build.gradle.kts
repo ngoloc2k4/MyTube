@@ -28,6 +28,30 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("KEYSTORE_FILE") ?: project.findProperty("KEYSTORE_FILE") as? String
+            val keystoreFile = keystorePath?.let { file(it) }
+            val storePass = System.getenv("KEYSTORE_PASSWORD") ?: project.findProperty("KEYSTORE_PASSWORD") as? String
+            val kAlias = System.getenv("KEY_ALIAS") ?: project.findProperty("KEY_ALIAS") as? String
+            val kPass = System.getenv("KEY_PASSWORD") ?: project.findProperty("KEY_PASSWORD") as? String
+
+            if (keystoreFile != null && keystoreFile.exists() && !storePass.isNullOrBlank() && !kAlias.isNullOrBlank()) {
+                storeFile = keystoreFile
+                storePassword = storePass
+                keyAlias = kAlias
+                keyPassword = kPass ?: storePass
+            } else {
+                // Fallback for local development build when release keystore is not configured
+                val debugKeystore = signingConfigs.getByName("debug")
+                storeFile = debugKeystore.storeFile
+                storePassword = debugKeystore.storePassword
+                keyAlias = debugKeystore.keyAlias
+                keyPassword = debugKeystore.keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -35,7 +59,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             // debug settings
