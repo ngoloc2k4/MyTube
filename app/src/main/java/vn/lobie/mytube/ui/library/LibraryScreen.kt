@@ -26,7 +26,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import coil3.compose.AsyncImage
+import vn.lobie.mytube.R
 import vn.lobie.mytube.domain.model.Video
 import vn.lobie.mytube.ui.components.CompactVideoCard
 
@@ -85,6 +87,31 @@ fun LibraryScreen(
                     }
                 ) {
                     Text("Hủy")
+                }
+            }
+        )
+    }
+
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = { Text(stringResource(R.string.delete_history_confirm_title)) },
+            text = { Text(stringResource(R.string.delete_history_confirm_msg)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearHistory()
+                        showClearHistoryDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.confirm_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) {
+                    Text(stringResource(R.string.cancel_action))
                 }
             }
         )
@@ -255,10 +282,10 @@ fun LibraryScreen(
                         )
                     }
                     if (history.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.clearHistory() }) {
+                        TextButton(onClick = { showClearHistoryDialog = true }) {
                             Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Clear", style = MaterialTheme.typography.labelMedium)
+                            Text(text = stringResource(R.string.clear_action), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -317,6 +344,24 @@ fun LibraryScreen(
                                                     .background(androidx.compose.ui.graphics.Color(0xFFFF0000))
                                             )
                                         }
+                                    }
+
+                                    IconButton(
+                                        onClick = { viewModel.removeHistoryItem(item.videoId) },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(28.dp)
+                                            .background(
+                                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = stringResource(R.string.remove_from_history),
+                                            tint = androidx.compose.ui.graphics.Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))

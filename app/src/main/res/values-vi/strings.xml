@@ -122,4 +122,11 @@
     <string name="clear_queue">Xóa hàng đợi</string>
     <string name="move_up">Chuyển lên</string>
     <string name="move_down">Chuyển xuống</string>
+    <string name="search_history_title">Tìm kiếm gần đây</string>
+    <string name="clear_all_history">Xóa tất cả</string>
+    <string name="delete_history_confirm_title">Xóa nhật ký xem?</string>
+    <string name="delete_history_confirm_msg">Bạn có chắc chắn muốn xóa toàn bộ lịch sử xem video không?</string>
+    <string name="remove_from_history">Xóa khỏi nhật ký xem</string>
+    <string name="confirm_action">Xóa</string>
+    <string name="cancel_action">Hủy</string>
 </resources>

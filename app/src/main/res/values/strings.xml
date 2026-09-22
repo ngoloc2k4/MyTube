@@ -122,4 +122,11 @@
     <string name="clear_queue">Clear queue</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
+    <string name="search_history_title">Recent searches</string>
+    <string name="clear_all_history">Clear all</string>
+    <string name="delete_history_confirm_title">Clear watch history?</string>
+    <string name="delete_history_confirm_msg">Are you sure you want to clear your entire watch history?</string>
+    <string name="remove_from_history">Remove from history</string>
+    <string name="confirm_action">Clear</string>
+    <string name="cancel_action">Cancel</string>
 </resources>

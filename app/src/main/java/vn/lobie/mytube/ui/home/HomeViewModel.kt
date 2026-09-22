@@ -67,6 +67,9 @@ class HomeViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    val searchHistory: StateFlow<List<String>> = (settingsDataStore?.searchHistory ?: flowOf(emptyList()))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         if (settingsDataStore != null) {
             viewModelScope.launch {
@@ -297,6 +300,10 @@ class HomeViewModel(
             loadRecommendedVideos()
             return
         }
+        val trimmedQuery = query.trim()
+        viewModelScope.launch {
+            settingsDataStore?.addSearchHistory(trimmedQuery)
+        }
         viewModelScope.launch {
             val current = _uiState.value as? HomeUiState.Success
             _uiState.value = current?.copy(isSearching = true) ?: HomeUiState.Loading
@@ -306,7 +313,7 @@ class HomeViewModel(
                 emptySet()
             }
 
-            searchVideosUseCase(query)
+            searchVideosUseCase(trimmedQuery)
                 .onSuccess { results ->
                     val rawFiltered = results
                         .filterNot { item ->
@@ -321,13 +328,25 @@ class HomeViewModel(
                     val base = current ?: HomeUiState.Success(videos = emptyList())
                     _uiState.value = base.copy(
                         searchResults = filteredResults,
-                        searchQuery = query,
+                        searchQuery = trimmedQuery,
                         isSearching = false
                     )
                 }
                 .onFailure { error ->
                     _uiState.value = HomeUiState.Error(error.localizedMessage ?: "Search failed")
                 }
+        }
+    }
+
+    fun deleteSearchHistory(query: String) {
+        viewModelScope.launch {
+            settingsDataStore?.removeSearchHistory(query)
+        }
+    }
+
+    fun clearSearchHistory() {
+        viewModelScope.launch {
+            settingsDataStore?.clearSearchHistory()
         }
     }
 

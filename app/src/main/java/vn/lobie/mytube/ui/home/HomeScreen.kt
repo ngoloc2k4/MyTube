@@ -1,8 +1,10 @@
 package vn.lobie.mytube.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,6 +18,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.NorthWest
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -23,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -30,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.lobie.mytube.R
@@ -50,10 +56,25 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val watchProgressMap by viewModel.watchProgressMap.collectAsState()
     val searchFilter by viewModel.searchFilter.collectAsState()
+    val searchHistory by viewModel.searchHistory.collectAsState()
     var currentQuery by remember { mutableStateOf("") }
+    var isSearchFocused by remember { mutableStateOf(false) }
     var showFilterDialog by remember { mutableStateOf(false) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    val filteredHistory = remember(searchHistory, currentQuery) {
+        if (currentQuery.isBlank()) {
+            searchHistory.take(8)
+        } else {
+            searchHistory.filter { it.contains(currentQuery.trim(), ignoreCase = true) }.take(8)
+        }
+    }
+
+    BackHandler(enabled = isSearchFocused) {
+        isSearchFocused = false
+        focusManager.clearFocus()
+    }
 
     Scaffold(
         topBar = {
@@ -93,7 +114,9 @@ fun HomeScreen(
                             viewModel.clearSearch()
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .onFocusChanged { isSearchFocused = it.isFocused },
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     leadingIcon = {
                         Icon(
@@ -115,6 +138,7 @@ fun HomeScreen(
                                 IconButton(onClick = {
                                     currentQuery = ""
                                     viewModel.clearSearch()
+                                    isSearchFocused = false
                                     focusManager.clearFocus()
                                 }) {
                                     Icon(
@@ -126,6 +150,7 @@ fun HomeScreen(
                                 FilledIconButton(
                                     onClick = {
                                         keyboardController?.hide()
+                                        isSearchFocused = false
                                         focusManager.clearFocus()
                                         if (currentQuery.isNotBlank()) {
                                             viewModel.performSearch(currentQuery)
@@ -153,6 +178,7 @@ fun HomeScreen(
                     keyboardActions = KeyboardActions(
                         onSearch = {
                             keyboardController?.hide()
+                            isSearchFocused = false
                             focusManager.clearFocus()
                             if (currentQuery.isNotBlank()) {
                                 viewModel.performSearch(currentQuery)
@@ -178,6 +204,109 @@ fun HomeScreen(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
+                }
+            }
+
+            // Autocomplete / Search History Dropdown Card
+            AnimatedVisibility(
+                visible = isSearchFocused && filteredHistory.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.search_history_title),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            TextButton(
+                                onClick = { viewModel.clearSearchHistory() },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.clear_all_history),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+
+                        filteredHistory.forEach { queryItem ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        currentQuery = queryItem
+                                        isSearchFocused = false
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        viewModel.performSearch(queryItem)
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = queryItem,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                IconButton(
+                                    onClick = { currentQuery = queryItem },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.NorthWest,
+                                        contentDescription = "Điền từ khóa",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.deleteSearchHistory(queryItem) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.clear_action),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

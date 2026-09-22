@@ -32,6 +32,7 @@ class SettingsDataStore(private val context: Context) {
         val INVIDIOUS_INSTANCES = stringPreferencesKey("invidious_instances")
         val AUDIO_NORMALIZATION_ENABLED = booleanPreferencesKey("audio_normalization_enabled")
         val CROSSFADE_DURATION_SECONDS = intPreferencesKey("crossfade_duration_seconds")
+        val SEARCH_HISTORY = stringPreferencesKey("search_history")
 
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
@@ -203,6 +204,50 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setCrossfadeDurationSeconds(seconds: Int) {
         context.dataStore.edit { preferences ->
             preferences[CROSSFADE_DURATION_SECONDS] = seconds
+        }
+    }
+
+    val searchHistory: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[SEARCH_HISTORY]
+        if (raw.isNullOrBlank()) {
+            emptyList()
+        } else {
+            raw.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+        }
+    }
+
+    suspend fun addSearchHistory(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+        context.dataStore.edit { preferences ->
+            val current = preferences[SEARCH_HISTORY]
+                ?.split("\n")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.toMutableList() ?: mutableListOf()
+            current.remove(trimmed)
+            current.add(0, trimmed)
+            val limited = current.take(20)
+            preferences[SEARCH_HISTORY] = limited.joinToString("\n")
+        }
+    }
+
+    suspend fun removeSearchHistory(query: String) {
+        val trimmed = query.trim()
+        context.dataStore.edit { preferences ->
+            val current = preferences[SEARCH_HISTORY]
+                ?.split("\n")
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.toMutableList() ?: mutableListOf()
+            current.remove(trimmed)
+            preferences[SEARCH_HISTORY] = current.joinToString("\n")
+        }
+    }
+
+    suspend fun clearSearchHistory() {
+        context.dataStore.edit { preferences ->
+            preferences[SEARCH_HISTORY] = ""
         }
     }
 }

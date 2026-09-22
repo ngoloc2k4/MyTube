@@ -9,8 +9,11 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -2090,6 +2093,8 @@ private fun VideoPlayerSurface(
     val coroutineScope = rememberCoroutineScope()
     var seekFeedbackText by remember { mutableStateOf<String?>(null) }
     var seekFeedbackIsForward by remember { mutableStateOf(true) }
+    var seekAccumulatedSeconds by remember { mutableStateOf(0) }
+    var seekFeedbackJob by remember { mutableStateOf<Job?>(null) }
     var isSpeedBoosted by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -2111,19 +2116,26 @@ private fun VideoPlayerSurface(
                     onTap = { onToggleControls() },
                     onDoubleTap = { offset ->
                         val isForward = offset.x >= size.width / 2
+                        val stepSec = uiState.doubleTapSeekSeconds
+                        if (seekFeedbackText != null && seekFeedbackIsForward == isForward) {
+                            seekAccumulatedSeconds += stepSec
+                        } else {
+                            seekAccumulatedSeconds = stepSec
+                        }
                         seekFeedbackIsForward = isForward
-                        val sec = uiState.doubleTapSeekSeconds
-                        val delta = sec * 1000L
+                        val delta = stepSec * 1000L
                         if (isForward) {
                             onSeekBy(delta)
-                            seekFeedbackText = "+${sec}s"
+                            seekFeedbackText = "+${seekAccumulatedSeconds}s"
                         } else {
                             onSeekBy(-delta)
-                            seekFeedbackText = "-${sec}s"
+                            seekFeedbackText = "-${seekAccumulatedSeconds}s"
                         }
-                        coroutineScope.launch {
-                            delay(650)
+                        seekFeedbackJob?.cancel()
+                        seekFeedbackJob = coroutineScope.launch {
+                            delay(800)
                             seekFeedbackText = null
+                            seekAccumulatedSeconds = 0
                         }
                     },
                     onLongPress = {
@@ -2318,35 +2330,49 @@ private fun VideoPlayerSurface(
             )
         }
 
-        // Seek Feedback Indicator (+10s / -10s)
-        if (seekFeedbackText != null) {
+        // Double-Tap Seek Feedback Overlay (YouTube-style curved ripple arc)
+        AnimatedVisibility(
+            visible = seekFeedbackText != null,
+            enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.85f),
+            exit = fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 0.9f)
+        ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = if (seekFeedbackIsForward) Alignment.CenterEnd else Alignment.CenterStart
             ) {
                 Surface(
-                    shape = CircleShape,
-                    color = Color.Black.copy(alpha = 0.75f),
-                    modifier = Modifier.size(72.dp)
+                    shape = if (seekFeedbackIsForward) {
+                        RoundedCornerShape(topStartPercent = 100, bottomStartPercent = 100)
+                    } else {
+                        RoundedCornerShape(topEndPercent = 100, bottomEndPercent = 100)
+                    },
+                    color = Color.White.copy(alpha = 0.22f),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.46f)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = if (seekFeedbackIsForward) Icons.Default.FastForward else Icons.Default.FastRewind,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Text(
-                            text = seekFeedbackText.orEmpty(),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (seekFeedbackIsForward) Icons.Default.FastForward else Icons.Default.FastRewind,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = seekFeedbackText.orEmpty(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             }
