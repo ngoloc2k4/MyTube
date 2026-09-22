@@ -9,6 +9,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import androidx.room.withTransaction
 import vn.lobie.mytube.data.local.db.MyTubeDatabase
 import vn.lobie.mytube.data.local.db.entity.LikedVideoEntity
 import vn.lobie.mytube.data.local.db.entity.PlaylistEntity
@@ -154,57 +155,92 @@ class BackupRestoreManager(
         }
     }
 
+    companion object {
+        private const val MAX_IMPORT_BYTES = 20 * 1024 * 1024L // 20 MB memory limit
+    }
+
+    private fun readBoundedText(uri: Uri): String {
+        try {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { afd ->
+                val len = afd.length
+                if (len > MAX_IMPORT_BYTES) {
+                    throw IllegalArgumentException("Tệp vượt quá dung lượng cho phép (tối đa 20MB).")
+                }
+            }
+        } catch (_: Exception) {}
+
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalArgumentException("Cannot open input stream")
+        return inputStream.use { stream ->
+            val buffer = ByteArray(8192)
+            val output = java.io.ByteArrayOutputStream()
+            var totalRead = 0L
+            var bytesRead: Int
+            while (stream.read(buffer).also { bytesRead = it } != -1) {
+                totalRead += bytesRead
+                if (totalRead > MAX_IMPORT_BYTES) {
+                    throw IllegalArgumentException("Tệp vượt quá dung lượng cho phép (tối đa 20MB).")
+                }
+                output.write(buffer, 0, bytesRead)
+            }
+            output.toString("UTF-8")
+        }
+    }
+
     suspend fun restoreBackupJson(uri: Uri): Result<RestoreStats> = withContext(Dispatchers.IO) {
         try {
-            val content = context.contentResolver.openInputStream(uri)?.use { stream ->
-                BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).readText()
-            } ?: return@withContext Result.failure(Exception("Cannot open input stream"))
-
+            val content = readBoundedText(uri)
             val backup = json.decodeFromString<MyTubeBackupData>(content)
 
-            if (backup.subscriptions.isNotEmpty()) {
-                database.subscriptionDao().insertAll(backup.subscriptions.map {
-                    SubscriptionEntity(it.channelId, it.channelName, it.avatarUrl, it.subscribedAt)
-                })
-            }
-            if (backup.watchHistory.isNotEmpty()) {
-                database.watchHistoryDao().insertAll(backup.watchHistory.map {
-                    WatchHistoryEntity(
-                        it.videoId, it.title, it.channelId, it.channelName,
-                        it.thumbnailUrl, it.category, it.durationSeconds,
-                        it.watchedDurationMs, it.timestamp
-                    )
-                })
-            }
-            if (backup.likedVideos.isNotEmpty()) {
-                database.likedVideoDao().insertAll(backup.likedVideos.map {
-                    LikedVideoEntity(
-                        it.videoId, it.title, it.channelId, it.channelName,
-                        it.thumbnailUrl, it.durationSeconds, it.likedAt
-                    )
-                })
-            }
-            if (backup.playlists.isNotEmpty()) {
-                database.playlistDao().insertAll(backup.playlists.map {
-                    PlaylistEntity(
-                        it.id, it.name, it.isSystem, it.isMusicPlaylist,
-                        it.createdAt, it.updatedAt
-                    )
-                })
-            }
-            if (backup.playlistVideos.isNotEmpty()) {
-                database.playlistVideoDao().insertAll(backup.playlistVideos.map {
-                    PlaylistVideoEntity(
-                        playlistId = it.playlistId,
-                        videoId = it.videoId,
-                        title = it.title,
-                        channelName = it.channelName,
-                        thumbnailUrl = it.thumbnailUrl,
-                        durationSeconds = it.durationSeconds,
-                        sortOrder = it.sortOrder,
-                        addedAt = it.addedAt
-                    )
-                })
+            database.withTransaction {
+                if (backup.subscriptions.isNotEmpty()) {
+                    database.subscriptionDao().insertAll(backup.subscriptions.map {
+                        SubscriptionEntity(it.channelId, it.channelName, it.avatarUrl, it.subscribedAt)
+                    })
+                }
+                if (backup.watchHistory.isNotEmpty()) {
+                    database.watchHistoryDao().insertAll(backup.watchHistory.map {
+                        WatchHistoryEntity(
+                            it.videoId, it.title, it.channelId, it.channelName,
+                            it.thumbnailUrl, it.category, it.durationSeconds,
+                            it.watchedDurationMs, it.timestamp
+                        )
+                    })
+                }
+                if (backup.likedVideos.isNotEmpty()) {
+                    database.likedVideoDao().insertAll(backup.likedVideos.map {
+                        LikedVideoEntity(
+                            it.videoId, it.title, it.channelId, it.channelName,
+                            it.thumbnailUrl, it.durationSeconds, it.likedAt
+                        )
+                    })
+                }
+                if (backup.playlists.isNotEmpty()) {
+                    database.playlistDao().insertAll(backup.playlists.map {
+                        PlaylistEntity(
+                            it.id, it.name, it.isSystem, it.isMusicPlaylist,
+                            it.createdAt, it.updatedAt
+                        )
+                    })
+                }
+                if (backup.playlistVideos.isNotEmpty()) {
+                    val validPlaylistIds = database.playlistDao().getAllList().map { it.id }.toSet()
+                    val validPlaylistVideos = backup.playlistVideos.filter { it.playlistId in validPlaylistIds }
+                    if (validPlaylistVideos.isNotEmpty()) {
+                        database.playlistVideoDao().insertAll(validPlaylistVideos.map {
+                            PlaylistVideoEntity(
+                                playlistId = it.playlistId,
+                                videoId = it.videoId,
+                                title = it.title,
+                                channelName = it.channelName,
+                                thumbnailUrl = it.thumbnailUrl,
+                                durationSeconds = it.durationSeconds,
+                                sortOrder = it.sortOrder,
+                                addedAt = it.addedAt
+                            )
+                        })
+                    }
+                }
             }
 
             Result.success(
@@ -223,16 +259,15 @@ class BackupRestoreManager(
 
     suspend fun importSubscriptionsFromFile(uri: Uri): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            val content = context.contentResolver.openInputStream(uri)?.use { stream ->
-                BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).readText()
-            } ?: return@withContext Result.failure(Exception("Cannot open input stream"))
-
+            val content = readBoundedText(uri)
             val imported = parseSubscriptions(content)
             if (imported.isEmpty()) {
                 return@withContext Result.failure(Exception("Không tìm thấy kênh đăng ký hợp lệ trong tệp."))
             }
 
-            database.subscriptionDao().insertAll(imported)
+            database.withTransaction {
+                database.subscriptionDao().insertAll(imported)
+            }
             Result.success(imported.size)
         } catch (e: Exception) {
             Result.failure(e)
