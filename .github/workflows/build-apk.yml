@@ -73,7 +73,7 @@ jobs:
           fi
 
       - name: Build Release APK and Run Empirical Benchmarks
-        run: ./gradlew testReleaseUnitTest assembleRelease --build-cache --parallel --stacktrace
+        run: ./gradlew test assembleRelease --build-cache --parallel --stacktrace
 
       - name: Locate and prepare multi-ABI APKs
         run: |
