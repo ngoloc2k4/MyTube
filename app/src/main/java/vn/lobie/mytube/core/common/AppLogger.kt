@@ -29,8 +29,8 @@ data class LogEntry(
 }
 
 object AppLogger {
-    private const val MAX_RAM_LOGS = 350
-    private const val MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024L // 2MB rolling
+    private const val MAX_RAM_LOGS = 500
+    private const val MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024L // 5MB rolling file buffer
 
     private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
@@ -43,8 +43,27 @@ object AppLogger {
         val dir = File(context.cacheDir, "logs")
         if (!dir.exists()) dir.mkdirs()
         logFile = File(dir, "mytube_debug.log")
-        if (vn.lobie.mytube.BuildConfig.DEBUG) {
-            i("System", "AppLogger initialized. Device=${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})")
+
+        // Log session start
+        log("I", "Session", "App session started. Device=${Build.MANUFACTURER} ${Build.MODEL} (Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT})")
+
+        // Install uncaught exception handler for crash forensics
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val stackTrace = Log.getStackTraceString(throwable)
+                val scrubbed = scrubSensitiveData(stackTrace)
+                val entry = LogEntry(
+                    level = "E",
+                    tag = "CRASH",
+                    message = "FATAL UNCAUGHT EXCEPTION in thread [${thread.name}]: ${throwable.localizedMessage}",
+                    raw = scrubbed
+                )
+                writeToFile(entry)
+            } catch (_: Exception) {
+            } finally {
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
         }
     }
 
@@ -176,5 +195,13 @@ object AppLogger {
         } catch (e: Exception) {
             "masked_url"
         }
+    }
+
+    fun scrubSensitiveData(input: String): String {
+        return input
+            .replace(Regex("""(?i)(bearer\s+)[A-Za-z0-9\-._~+/]+=*"""), "$1[REDACTED]")
+            .replace(Regex("""(?i)(token["']?\s*[:=]\s*["']?)[A-Za-z0-9\-._~+/]+"""), "$1[REDACTED]")
+            .replace(Regex("""(?i)(api[_-]?key["']?\s*[:=]\s*["']?)[A-Za-z0-9\-._~+/]+"""), "$1[REDACTED]")
+            .replace(Regex("""(?i)(listenbrainz_token["']?\s*[:=]\s*["']?)[A-Za-z0-9\-._~+/]+"""), "$1[REDACTED]")
     }
 }

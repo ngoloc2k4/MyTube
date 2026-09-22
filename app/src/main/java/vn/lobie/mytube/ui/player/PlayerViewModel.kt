@@ -94,13 +94,21 @@ class PlayerViewModel(
     private val _isCommentsLoading = MutableStateFlow(false)
     val isCommentsLoading: StateFlow<Boolean> = _isCommentsLoading.asStateFlow()
 
+    private var commentsJob: Job? = null
+
     fun loadComments(videoId: String? = _uiState.value.currentVideo?.id) {
         val id = videoId ?: return
-        viewModelScope.launch {
+        commentsJob?.cancel()
+        commentsJob = viewModelScope.launch {
             _isCommentsLoading.value = true
-            val result = getCommentsUseCase(id)
-            _comments.value = result.getOrDefault(emptyList())
-            _isCommentsLoading.value = false
+            try {
+                val result = getCommentsUseCase(id)
+                _comments.value = result.getOrDefault(emptyList())
+            } catch (e: Exception) {
+                _comments.value = emptyList()
+            } finally {
+                _isCommentsLoading.value = false
+            }
         }
     }
 
