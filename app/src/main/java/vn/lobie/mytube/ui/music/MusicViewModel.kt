@@ -28,6 +28,8 @@ class MusicViewModel(
 
     val genres = listOf(
         "Dành cho bạn",
+        "Mới phát hành",
+        "Bảng xếp hạng",
         "Trending",
         "V-Pop",
         "K-Pop",
@@ -118,6 +120,8 @@ class MusicViewModel(
                 }
             } else {
                 val query = when (genre) {
+                    "Mới phát hành" -> "nhạc mới phát hành official music video new release"
+                    "Bảng xếp hạng" -> "bảng xếp hạng âm nhạc hot top charts billboard official"
                     "Trending" -> "nhạc trending hot tiktok youtube official"
                     "V-Pop" -> "vpop official music video"
                     "K-Pop" -> "kpop official music video"

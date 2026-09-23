@@ -244,6 +244,12 @@ class MainActivity : ComponentActivity() {
                                             bottomPadding = contentBottomPadding,
                                             onTrackClick = { track, tracks, index ->
                                                 playerViewModel.playVideo(track, tracks, index)
+                                            },
+                                            onPlayNext = { track ->
+                                                playerViewModel.playNextInQueue(track)
+                                            },
+                                            onAddToQueue = { track ->
+                                                playerViewModel.addToQueue(track)
                                             }
                                         )
                                     }
