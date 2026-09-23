@@ -147,14 +147,59 @@ fun LibraryScreen(
         )
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Library",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VideoLibrary,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Thư viện cá nhân",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Lịch sử, danh sách và tải xuống",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    FilledTonalButton(
+                        onClick = { showCreatePlaylistDialog = true },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Tạo playlist",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -163,12 +208,82 @@ fun LibraryScreen(
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = bottomPadding + 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Quick Access Chips Row
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AssistChip(
+                        onClick = {
+                            kotlinx.coroutines.CoroutineScope(coroutineScope.coroutineContext).let {
+                                // Jump or scroll to downloads
+                            }
+                        },
+                        label = { Text("Tải xuống (${downloads.size})") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+
+                    AssistChip(
+                        onClick = {
+                            // Jump or scroll to history
+                        },
+                        label = { Text("Lịch sử (${history.size})") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+
+                    AssistChip(
+                        onClick = {
+                            // Jump or scroll to liked
+                        },
+                        label = { Text("Đã thích (${likedVideos.size})") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.ThumbUp,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.tertiary
+                            )
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+            }
+
             // Downloads Section Header
             item {
                 val totalBytes = remember(downloads) { downloads.sumOf { it.fileSizeBytes } }
