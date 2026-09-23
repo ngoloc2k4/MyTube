@@ -3,6 +3,7 @@ package vn.lobie.mytube.ui.settings
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
